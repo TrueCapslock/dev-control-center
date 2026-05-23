@@ -73,6 +73,19 @@ export default {
       group: 'Management',
     },
     {
+      id: 'git-commit-push',
+      label: 'Commit & push',
+      command: 'git add -A && git commit -m "update $(date +%H:%M)" && git push',
+      group: 'Management',
+      confirm: true,
+    },
+    {
+      id: 'git-push',
+      label: 'Git push',
+      command: 'git push',
+      group: 'Management',
+    },
+    {
       id: 'status-outdated',
       label: 'Check outdated deps',
       command: 'npm outdated',
