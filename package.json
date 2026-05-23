@@ -1,0 +1,21 @@
+{
+  "name": "prokom-dev",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b -w",
+    "clean": "tsc -b --clean",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "start": "node packages/cli/dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "typescript": "^6.0.0",
+    "vitest": "^4.1.7"
+  }
+}
