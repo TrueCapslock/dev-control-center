@@ -97,4 +97,26 @@ describe('StatusStore', () => {
 
     fs.rmSync(dir, { recursive: true, force: true });
   });
+
+  it('resets stale running tasks to failure on load', () => {
+    const dir = '/tmp/prokom-test-stale-store';
+    fs.mkdirSync(dir, { recursive: true });
+    const store = new StatusStore();
+    store.updateTask('stale-run', {
+      id: 'stale-run',
+      label: 'Stale Run',
+      status: 'running',
+      startTime: Date.now(),
+    });
+    store.saveDir(dir);
+
+    const store2 = new StatusStore();
+    store2.loadDir(dir);
+    const task = store2.getTask('stale-run');
+    expect(task?.status).toBe('failure');
+    expect(task?.label).toBe('Stale Run');
+    expect(typeof task?.endTime).toBe('number');
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });

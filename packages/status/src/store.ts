@@ -62,8 +62,20 @@ export class StatusStore {
   loadDir(dir: string): void {
     const filePath = path.join(dir, 'status.json');
     if (fs.existsSync(filePath)) {
-      const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      this.tasks = new Map(raw as [string, TaskState][]);
+      const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as [string, TaskState][];
+      const tasks = new Map(raw);
+      let changed = false;
+      for (const [id] of tasks) {
+        const task = tasks.get(id)!;
+        if (task.status === 'running') {
+          tasks.set(id, { ...task, status: 'failure', endTime: Date.now() });
+          changed = true;
+        }
+      }
+      if (changed) {
+        fs.writeFileSync(filePath, JSON.stringify(Array.from(tasks.entries())), 'utf-8');
+      }
+      this.tasks = tasks;
       this.notify();
     }
   }
