@@ -50,7 +50,12 @@ export class TaskRunner {
     }
 
     const existing = this.statusStore.getTask(command.id);
-    if (existing?.status === 'running') return;
+    if (existing?.status === 'running') {
+      process.stderr.write(`[prokom] skip ${command.id}: already running\n`);
+      return;
+    }
+
+    process.stderr.write(`[prokom] run ${command.id}: ${command.command}\n`);
 
     await this.pluginManager?.executeHook('beforeRun', command);
 
@@ -96,6 +101,7 @@ export class TaskRunner {
     });
 
     child.on('close', (exitCode) => {
+      process.stderr.write(`[prokom] close ${command.id}: exit ${exitCode}\n`);
       this.running.delete(command.id);
 
       const result = {
@@ -117,6 +123,7 @@ export class TaskRunner {
     });
 
     child.on('error', (error) => {
+      process.stderr.write(`[prokom] error ${command.id}: ${error.message}\n`);
       this.running.delete(command.id);
 
       const result = {
