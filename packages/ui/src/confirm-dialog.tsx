@@ -17,10 +17,11 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ command }) => (
       <Text color="yellow">⚠</Text>
       {' '}Run{' '}
       <Text bold color="cyan">{command.label}</Text>
-      {'  '}
+      <Text>? </Text>
       <Text color="green">Y</Text>
       <Text color="gray">/</Text>
       <Text color="red">n</Text>
+      <Text color="gray"> — Enter or Y to confirm, Esc or N to cancel</Text>
     </Text>
   </Box>
 );

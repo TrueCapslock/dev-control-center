@@ -75,7 +75,7 @@ export default {
     {
       id: 'git-commit-push',
       label: 'Commit & push',
-      command: 'git add -A && git commit -m "update $(date +%H:%M)" && git push',
+      command: 'git add -A && git commit --allow-empty -m "update $(date +%H:%M)" && git push',
       group: 'Management',
       confirm: true,
     },

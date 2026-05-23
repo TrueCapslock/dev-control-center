@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import { Runtime } from '@prokom-dev/core';
 import { ProkomConfig, ProkomCommand } from '@prokom-dev/config';
@@ -30,6 +30,11 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   );
   const [currentGroup, setCurrentGroup] = useState<string | null>(null);
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const confirmingCmdRef = useRef(confirmingCmd);
+  confirmingCmdRef.current = confirmingCmd;
 
   useEffect(() => {
     const unsub = runtime.statusStore.subscribe((updated) => {
@@ -116,11 +121,12 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   }
 
   useInput((input, key) => {
-    if (mode === 'confirm') {
-      if (input === 'y' || input === 'Y' || key.return) {
-        if (confirmingCmd) runtime.taskRunner.run(confirmingCmd);
+    if (modeRef.current === 'confirm') {
+      if (input === 'y' || input === 'Y' || key.return || input === '\r') {
+        const cmd = confirmingCmdRef.current;
         setConfirmingCmd(null);
         setMode('normal');
+        if (cmd) runtime.taskRunner.run(cmd);
       } else if (input === 'n' || input === 'N' || key.escape) {
         setConfirmingCmd(null);
         setMode('normal');
