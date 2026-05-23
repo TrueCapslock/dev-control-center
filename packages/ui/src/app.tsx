@@ -127,13 +127,11 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
         setConfirmingCmd(null);
         setMode('normal');
         if (cmd) {
-          try {
+          setTimeout(() => {
             runtime.taskRunner.run(cmd).catch((e: unknown) => {
               process.stderr.write(`[prokom] run error: ${e}\n`);
             });
-          } catch (e: unknown) {
-            process.stderr.write(`[prokom] run threw: ${e}\n`);
-          }
+          }, 0);
         }
       } else if (input === 'n' || input === 'N' || key.escape) {
         setConfirmingCmd(null);
