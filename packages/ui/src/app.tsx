@@ -375,10 +375,6 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
         <ConfirmDialog command={confirmingCmd} />
       )}
 
-      {mode === 'input' && inputCmd && (
-        <InputPrompt command={inputCmd} value={inputValue} />
-      )}
-
       <Box marginTop={1}>
         <CommandList
           items={filteredItems}
@@ -395,6 +391,10 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
           focusedPane={focusedPane}
         />
       </Box>
+
+      {mode === 'input' && inputCmd && (
+        <InputPrompt command={inputCmd} value={inputValue} />
+      )}
     </Box>
   );
 };
