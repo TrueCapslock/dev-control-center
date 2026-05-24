@@ -47,10 +47,6 @@ export const CommandList: React.FC<CommandListProps> = ({
     return task?.status === 'running' ? `■ Stop ${item.label}` : `▶ Start ${item.label}`;
   }
 
-  function isGroup(item: MenuItem): item is MenuGroup {
-    return 'count' in item;
-  }
-
   return (
     <Box flexDirection="column" minWidth={30} borderStyle="round" borderColor="gray">
       <Box paddingLeft={1}>
@@ -78,7 +74,7 @@ export const CommandList: React.FC<CommandListProps> = ({
         const isCursor = actualIndex === selectedIndex;
         const cursor = isCursor ? '❯' : ' ';
 
-        if ('command' in item) {
+        if (!('count' in item)) {
           const checked = multiSelected?.has(item.id);
           const sel = checked ? '\u2713' : ' ';
           const prefix = `${cursor}[${sel}]`;

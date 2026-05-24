@@ -9,6 +9,7 @@ export interface ProkomCommand {
   command?: string;
   toggle?: ProkomToggle;
   confirm?: boolean;
+  input?: { message: string; placeholder?: string };
   watch?: boolean;
   cwd?: string;
   group?: string;

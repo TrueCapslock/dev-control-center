@@ -78,6 +78,7 @@ export class TaskRunner {
 
     const child = spawn(command.command, [], {
       shell: true,
+      detached: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: command.cwd,
     });
@@ -149,7 +150,11 @@ export class TaskRunner {
   abort(id: string): void {
     const child = this.running.get(id);
     if (child) {
-      child.kill();
+      try {
+        process.kill(-child.pid!, 'SIGTERM');
+      } catch {
+        child.kill('SIGTERM');
+      }
       this.running.delete(id);
     }
     this.stopWatcher(id);
@@ -157,7 +162,11 @@ export class TaskRunner {
 
   abortAll(): void {
     for (const [id, child] of this.running) {
-      child.kill();
+      try {
+        process.kill(-child.pid!, 'SIGTERM');
+      } catch {
+        child.kill('SIGTERM');
+      }
       this.running.delete(id);
     }
     for (const [id] of this.watchers) {
@@ -170,7 +179,11 @@ export class TaskRunner {
     if (child) {
       child.removeAllListeners('close');
       child.removeAllListeners('error');
-      child.kill('SIGTERM');
+      try {
+        process.kill(-child.pid!, 'SIGTERM');
+      } catch {
+        child.kill('SIGTERM');
+      }
       this.running.delete(command.id);
     }
     this.stopWatcher(command.id);

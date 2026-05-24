@@ -6,13 +6,14 @@ import { TaskState } from '@prokom-dev/status';
 import { CommandList, MenuGroup, MenuItem } from './command-list.js';
 import { StatusPanel } from './status-panel.js';
 import { ConfirmDialog } from './confirm-dialog.js';
+import { InputPrompt } from './input-prompt.js';
 
 interface AppProps {
   config: ProkomConfig;
   runtime: Runtime;
 }
 
-type Mode = 'normal' | 'search' | 'confirm';
+type Mode = 'normal' | 'search' | 'confirm' | 'input';
 type Pane = 'commands' | 'status';
 
 export const App: React.FC<AppProps> = ({ config, runtime }) => {
@@ -25,6 +26,8 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   const [confirmingCmd, setConfirmingCmd] = useState<ProkomCommand | null>(
     null,
   );
+  const [inputCmd, setInputCmd] = useState<ProkomCommand | null>(null);
+  const [inputValue, setInputValue] = useState('');
   const [scrollOffsets, setScrollOffsets] = useState<Map<string, number>>(
     () => new Map(),
   );
@@ -35,6 +38,10 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   modeRef.current = mode;
   const confirmingCmdRef = useRef(confirmingCmd);
   confirmingCmdRef.current = confirmingCmd;
+  const inputCmdRef = useRef(inputCmd);
+  inputCmdRef.current = inputCmd;
+  const inputValueRef = useRef(inputValue);
+  inputValueRef.current = inputValue;
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
 
@@ -103,13 +110,17 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
     } else if (cmd.confirm) {
       setConfirmingCmd(cmd);
       setMode('confirm');
+    } else if (cmd.input) {
+      setInputCmd(cmd);
+      setInputValue('');
+      setMode('input');
     } else {
       runtime.taskRunner.run(cmd);
     }
   }, [runtime]);
 
   function selectItem(item: MenuItem): void {
-    if (!('command' in item)) {
+    if ('count' in item) {
       setCurrentGroup(item.label);
       setSelectedIndex(0);
       return;
@@ -134,15 +145,50 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
       if (input === 'y' || input === 'Y' || key.return || input === '\r') {
         const cmd = confirmingCmdRef.current;
         setConfirmingCmd(null);
-        setMode('normal');
         if (cmd) {
-          runtime.taskRunner.run(cmd).catch((e: unknown) => {
-            process.stderr.write(`[prokom] run error: ${e}\n`);
-          });
+          if (cmd.input) {
+            setInputCmd(cmd);
+            setInputValue('');
+            setMode('input');
+          } else {
+            setMode('normal');
+            runtime.taskRunner.run(cmd).catch((e: unknown) => {
+              process.stderr.write(`[prokom] run error: ${e}\n`);
+            });
+          }
+        } else {
+          setMode('normal');
         }
       } else if (input === 'n' || input === 'N' || key.escape) {
         setConfirmingCmd(null);
         setMode('normal');
+      }
+      return;
+    }
+
+    if (modeRef.current === 'input') {
+      const cmd = inputCmdRef.current;
+      if (key.escape) {
+        setInputCmd(null);
+        setInputValue('');
+        setMode('normal');
+      } else if (key.return || input === '\r') {
+        setInputCmd(null);
+        setMode('normal');
+        if (cmd && cmd.command) {
+          const msg = inputValueRef.current;
+          runtime.taskRunner.run(
+            { ...cmd, command: cmd.command.replace(/\{input\}/g, msg) },
+          ).catch((e: unknown) => {
+            process.stderr.write(`[prokom] run error: ${e}\n`);
+          });
+        }
+      } else if (key.backspace || key.delete) {
+        setInputValue((v) => v.slice(0, -1));
+      } else if (input && !key.ctrl && !key.meta && input.length === 1) {
+        if (input >= ' ' && input !== '\x7f') {
+          setInputValue((v) => v + input);
+        }
       }
       return;
     }
@@ -252,7 +298,7 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
       }
     } else if (input === ' ') {
       const item = filteredItems[selectedIndex];
-      if (item && 'command' in item) {
+      if (item && !('count' in item)) {
         setMultiSelected((prev) => {
           const next = new Set(prev);
           if (next.has(item.id)) {
@@ -327,6 +373,10 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
 
       {mode === 'confirm' && confirmingCmd && (
         <ConfirmDialog command={confirmingCmd} />
+      )}
+
+      {mode === 'input' && inputCmd && (
+        <InputPrompt command={inputCmd} value={inputValue} />
       )}
 
       <Box marginTop={1}>

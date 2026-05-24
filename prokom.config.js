@@ -10,7 +10,7 @@ export default {
     {
       id: 'dev',
       label: 'Watch mode',
-      command: 'npm run dev',
+      toggle: { start: 'npm run dev', stop: 'pkill -f "tsc -b" 2>/dev/null || true' },
       group: 'Development',
     },
     {
@@ -94,9 +94,10 @@ export default {
     {
       id: 'git-commit-push',
       label: 'Commit & push',
-      command: 'git add -A && git commit --allow-empty -m "update $(date +%H:%M)" && git push',
+      command: 'git add -A && git commit --allow-empty -m "{input}" && git push',
       group: 'Management',
       confirm: true,
+      input: { message: 'Commit message:', placeholder: 'type a message…' },
     },
     {
       id: 'git-push',
