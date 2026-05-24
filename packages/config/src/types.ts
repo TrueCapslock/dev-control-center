@@ -1,7 +1,13 @@
+export interface ProkomToggle {
+  start: string;
+  stop?: string;
+}
+
 export interface ProkomCommand {
   id: string;
   label: string;
-  command: string;
+  command?: string;
+  toggle?: ProkomToggle;
   confirm?: boolean;
   watch?: boolean;
   cwd?: string;

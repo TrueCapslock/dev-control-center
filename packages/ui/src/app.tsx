@@ -35,6 +35,8 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   modeRef.current = mode;
   const confirmingCmdRef = useRef(confirmingCmd);
   confirmingCmdRef.current = confirmingCmd;
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
 
   useEffect(() => {
     const unsub = runtime.statusStore.subscribe((updated) => {
@@ -91,7 +93,14 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   const selCount = multiSelected.size;
 
   const runSingle = useCallback((cmd: ProkomCommand) => {
-    if (cmd.confirm) {
+    if (cmd.toggle) {
+      const task = tasksRef.current.get(cmd.id);
+      if (task?.status === 'running') {
+        runtime.taskRunner.stop(cmd);
+      } else {
+        runtime.taskRunner.run(cmd);
+      }
+    } else if (cmd.confirm) {
       setConfirmingCmd(cmd);
       setMode('confirm');
     } else {
@@ -323,6 +332,7 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
       <Box marginTop={1}>
         <CommandList
           items={filteredItems}
+          tasks={tasks}
           selectedIndex={selectedIndex}
           multiSelected={multiSelected}
           selCount={selCount}

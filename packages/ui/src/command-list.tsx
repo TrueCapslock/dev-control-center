@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text, useStdout } from 'ink';
 import { ProkomCommand } from '@prokom-dev/config';
+import { TaskState } from '@prokom-dev/status';
 
 export interface MenuGroup {
   id: string;
@@ -17,6 +18,7 @@ interface CommandListProps {
   selCount?: number;
   breadcrumb?: string;
   maxHeight?: number;
+  tasks?: ReadonlyMap<string, TaskState>;
 }
 
 export const CommandList: React.FC<CommandListProps> = ({
@@ -26,6 +28,7 @@ export const CommandList: React.FC<CommandListProps> = ({
   selCount,
   breadcrumb,
   maxHeight: maxHeightProp,
+  tasks,
 }) => {
   const { stdout } = useStdout();
   const rows = stdout?.rows ?? 24;
@@ -37,6 +40,16 @@ export const CommandList: React.FC<CommandListProps> = ({
   const visible = items.slice(start, start + maxHeight);
   const hiddenAbove = start;
   const hiddenBelow = total - (start + visible.length);
+
+  function getLabel(item: ProkomCommand): string {
+    if (!item.toggle) return item.label;
+    const task = tasks?.get(item.id);
+    return task?.status === 'running' ? `■ Stop ${item.label}` : `▶ Start ${item.label}`;
+  }
+
+  function isGroup(item: MenuItem): item is MenuGroup {
+    return 'count' in item;
+  }
 
   return (
     <Box flexDirection="column" minWidth={30} borderStyle="round" borderColor="gray">
@@ -72,7 +85,7 @@ export const CommandList: React.FC<CommandListProps> = ({
           return (
             <Box key={item.id} paddingLeft={1}>
               <Text color={isCursor ? 'green' : undefined}>
-                {prefix} {item.label}
+                {prefix} {getLabel(item)}
                 {item.cwd ? (
                   <Text color={isCursor ? 'green' : 'gray'}>
                     {' ['}{item.cwd}{']'}
@@ -95,13 +108,14 @@ export const CommandList: React.FC<CommandListProps> = ({
           );
         }
 
+        const group = item as MenuGroup;
         return (
-          <Box key={item.id} paddingLeft={1}>
+          <Box key={group.id} paddingLeft={1}>
             <Text color={isCursor ? 'green' : 'yellow'}>
-              {cursor}  <Text bold>▸ {item.label}</Text>
+              {cursor}  <Text bold>▸ {group.label}</Text>
               {' '}
               <Text color={isCursor ? 'green' : 'gray'}>
-                ({item.count})
+                ({group.count})
               </Text>
             </Text>
           </Box>

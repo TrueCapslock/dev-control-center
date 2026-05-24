@@ -42,12 +42,17 @@ export class TaskRunner {
   ) {}
 
   async run(command: ProkomCommand, skipClear = false): Promise<void> {
+    if (command.toggle) {
+      command = { ...command, command: command.toggle.start };
+    }
     if (command.pipelineSteps) {
       return this.runPipeline(command);
     }
     if (command.parallelSteps) {
       return this.runParallelSteps(command);
     }
+
+    if (!command.command) return;
 
     const existing = this.statusStore.getTask(command.id);
     if (existing?.status === 'running') {
@@ -157,6 +162,29 @@ export class TaskRunner {
     }
     for (const [id] of this.watchers) {
       this.stopWatcher(id);
+    }
+  }
+
+  stop(command: ProkomCommand): void {
+    const child = this.running.get(command.id);
+    if (child) {
+      child.removeAllListeners('close');
+      child.removeAllListeners('error');
+      child.kill('SIGTERM');
+      this.running.delete(command.id);
+    }
+    this.stopWatcher(command.id);
+    this.statusStore.updateTask(command.id, {
+      status: 'success',
+      endTime: Date.now(),
+    });
+    this.eventBus.emit('task:complete', command.id, 0);
+    if (command.toggle?.stop) {
+      spawn(command.toggle.stop, {
+        shell: true,
+        stdio: 'ignore',
+        cwd: command.cwd,
+      });
     }
   }
 

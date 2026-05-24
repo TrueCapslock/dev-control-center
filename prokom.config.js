@@ -46,6 +46,25 @@ export default {
       group: 'Build',
     },
     {
+      id: 'deploy-dry-run',
+      label: 'Publish dry run',
+      command: 'npm publish --workspaces --dry-run',
+      group: 'Deploy',
+    },
+    {
+      id: 'deploy-publish',
+      label: 'Publish packages',
+      command: 'npm publish --workspaces',
+      group: 'Deploy',
+      confirm: true,
+    },
+    {
+      id: 'dev-server-toggle',
+      label: 'Dev server',
+      toggle: { start: 'sleep 60', stop: 'echo "server stopped"' },
+      group: 'Demo',
+    },
+    {
       id: 'parallel-demo',
       label: 'Parallel demo (sleep 3)',
       command: 'sleep 3',
