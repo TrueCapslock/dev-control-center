@@ -231,6 +231,7 @@ async function main() {
     console.error('prokom requires an interactive terminal');
     process.exit(1);
   }
+  console.clear();
   await startUI(config, runtime);
   process.exit(0);
 }

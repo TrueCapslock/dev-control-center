@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text, useStdout } from 'ink';
+import { Box, Text } from 'ink';
 import { ProkomCommand } from '@prokom-dev/config';
 import { TaskState } from '@prokom-dev/status';
 
@@ -11,13 +11,14 @@ export interface MenuGroup {
 
 export type MenuItem = ProkomCommand | MenuGroup;
 
+const CONTENT_ROWS = 8;
+
 interface CommandListProps {
   items: MenuItem[];
   selectedIndex: number;
   multiSelected?: Set<string>;
   selCount?: number;
   breadcrumb?: string;
-  maxHeight?: number;
   tasks?: ReadonlyMap<string, TaskState>;
 }
 
@@ -27,28 +28,26 @@ export const CommandList: React.FC<CommandListProps> = ({
   multiSelected,
   selCount,
   breadcrumb,
-  maxHeight: maxHeightProp,
   tasks,
 }) => {
-  const { stdout } = useStdout();
-  const rows = stdout?.rows ?? 24;
-  const maxHeight = maxHeightProp ?? Math.max(5, rows - 6);
   const total = items.length;
-  const half = Math.floor(maxHeight / 2);
+  const half = Math.floor(CONTENT_ROWS / 2);
   let start = Math.max(0, selectedIndex - half);
-  start = Math.min(start, Math.max(0, total - maxHeight));
-  const visible = items.slice(start, start + maxHeight);
+  start = Math.min(start, Math.max(0, total - CONTENT_ROWS));
+  const visible = items.slice(start, start + CONTENT_ROWS);
   const hiddenAbove = start;
   const hiddenBelow = total - (start + visible.length);
+  const noCommands = total === 0;
+  const padRows = Math.max(0, CONTENT_ROWS - (hiddenAbove > 0 ? 1 : 0) - visible.length - (hiddenBelow > 0 ? 1 : 0) - (noCommands ? 1 : 0));
 
   function getLabel(item: ProkomCommand): string {
     if (!item.toggle) return item.label;
     const task = tasks?.get(item.id);
-    return task?.status === 'running' ? `■ Stop ${item.label}` : `▶ Start ${item.label}`;
+    return task?.status === 'running' ? `Stop ${item.label}` : `Start ${item.label}`;
   }
 
   return (
-    <Box flexDirection="column" minWidth={30} borderStyle="round" borderColor="gray">
+    <Box flexDirection="column" minWidth={30} borderStyle="round" borderColor="white">
       <Box paddingLeft={1}>
         <Text color="cyan">Commands</Text>
         {selCount && selCount > 0 ? (
@@ -60,12 +59,12 @@ export const CommandList: React.FC<CommandListProps> = ({
       </Box>
 
       {total === 0 && (
-        <Box paddingLeft={2}>
+        <Box paddingLeft={1}>
           <Text color="gray">No commands configured</Text>
         </Box>
       )}
       {hiddenAbove > 0 && (
-        <Box paddingLeft={2}>
+        <Box paddingLeft={1}>
           <Text color="gray">↑ {hiddenAbove} more</Text>
         </Box>
       )}
@@ -118,10 +117,14 @@ export const CommandList: React.FC<CommandListProps> = ({
         );
       })}
       {hiddenBelow > 0 && (
-        <Box paddingLeft={2}>
+        <Box paddingLeft={1}>
           <Text color="gray">↓ {hiddenBelow} more</Text>
         </Box>
       )}
+
+      {Array.from({ length: padRows }).map((_, i) => (
+        <Box key={`pad-${i}`} height={1}><Text> </Text></Box>
+      ))}
     </Box>
   );
 };

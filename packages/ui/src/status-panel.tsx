@@ -16,6 +16,12 @@ interface StatusPanelProps {
   focusedPane: 'commands' | 'status';
 }
 
+const PANEL_HEIGHT = 11;
+const CONTENT_ROWS = PANEL_HEIGHT - 2;
+const TITLE_ROWS = 1;
+const TASK_HEADER_ROWS = 1;
+const OUTPUT_ROWS = CONTENT_ROWS - TITLE_ROWS - TASK_HEADER_ROWS;
+
 const STATUS_STYLE: Record<TaskState['status'], { icon: string; color: string; label: string }> = {
   idle:    { icon: '\u25CB', color: 'gray',   label: 'IDLE' },
   running: { icon: '\u25CF', color: 'yellow', label: 'RUNNING' },
@@ -41,51 +47,52 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   );
 
   const isFocused = focusedPane === 'status';
+  const statusColor = isFocused ? 'cyan' : 'white';
+  const task = entries[0];
+  const cleaned = task?.output ? sanitizeOutput(task.output) : '';
+  const lines = cleaned ? cleaned.split('\n') : [];
+  const offset = task ? (scrollOffsets.get(task.id) ?? 0) : 0;
+  const endLine = Math.max(0, lines.length - offset);
+  const startLine = Math.max(0, endLine - OUTPUT_ROWS);
+  const showLines = lines.slice(startLine, endLine);
+  const hiddenAbove = startLine;
+  const hiddenBelow = offset;
 
   return (
     <Box
       flexDirection="column"
       flexGrow={1}
+      minWidth={20}
+      height={PANEL_HEIGHT}
       borderStyle="round"
-      borderColor={isFocused ? 'cyan' : 'gray'}
+      borderColor={statusColor}
     >
       <Box paddingLeft={1}>
         <Text color={isFocused ? 'cyan' : undefined}>
-          Status
+          Output
         </Text>
-        {isFocused ? (
-          <Text color="cyan">  [Tab to switch]</Text>
-        ) : (
-          <Text color="gray">  [Tab to focus]</Text>
-        )}
+        {hiddenAbove > 0 ? (
+          <Text color="gray">  ↑ {hiddenAbove} above</Text>
+        ) : null}
+        {hiddenBelow > 0 ? (
+          <Text color="gray">  ↓ {hiddenBelow} below</Text>
+        ) : null}
       </Box>
 
-      {entries.length === 0 && (
+      {!task && (
         <Box paddingLeft={2}>
           <Text color="gray">No tasks yet</Text>
         </Box>
       )}
 
-      {entries.map((task) => {
+      {task ? (() => {
         const style = STATUS_STYLE[task.status];
-        const isActive = task.status === 'running';
-        const cleaned = task.output ? sanitizeOutput(task.output) : '';
-        const lines = cleaned ? cleaned.split('\n') : [];
-        const baseLimit = isActive ? 50 : 10;
-        const offset = scrollOffsets.get(task.id) ?? 0;
-
-        const endLine = Math.max(0, lines.length - offset);
-        const startLine = Math.max(0, endLine - baseLimit);
-        const showLines = lines.slice(startLine, endLine);
-        const hiddenAbove = startLine;
-        const hiddenBelow = offset;
-
         const duration = task.startTime
           ? formatDuration((task.endTime ?? Date.now()) - task.startTime)
           : null;
 
         return (
-          <Box key={task.id} flexDirection="column" marginBottom={1}>
+          <Box key={task.id} flexDirection="column">
             <Box paddingLeft={1}>
               <Text color={style.color}>
                 {style.icon} {task.label}
@@ -105,24 +112,18 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
             </Box>
             {task.output ? (
               <Box paddingLeft={2} flexDirection="column">
-                {hiddenAbove > 0 && (
-                  <Text color="gray">
-                    ↑ {hiddenAbove} lines above
-                  </Text>
-                )}
-                <Box paddingLeft={1}>
-                  <Text>{showLines.join('\n')}</Text>
+                <Box paddingLeft={1} flexDirection="column">
+                  {showLines.map((line, index) => (
+                    <Text key={`${startLine + index}-${line}`} wrap="truncate-end">
+                      {line || ' '}
+                    </Text>
+                  ))}
                 </Box>
-                {hiddenBelow > 0 && (
-                  <Text color="gray">
-                    ↓ {hiddenBelow} lines below
-                  </Text>
-                )}
               </Box>
             ) : null}
           </Box>
         );
-      })}
+      })() : null}
     </Box>
   );
 };

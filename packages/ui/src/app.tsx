@@ -4,6 +4,7 @@ import { Runtime } from '@prokom-dev/core';
 import { ProkomConfig, ProkomCommand } from '@prokom-dev/config';
 import { TaskState } from '@prokom-dev/status';
 import { CommandList, MenuGroup, MenuItem } from './command-list.js';
+import { MetricsPanel } from './metrics-panel.js';
 import { StatusPanel } from './status-panel.js';
 import { ConfirmDialog } from './confirm-dialog.js';
 import { InputPrompt } from './input-prompt.js';
@@ -384,6 +385,8 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
           selCount={selCount}
           breadcrumb={breadcrumb}
         />
+        <Box width={1} />
+        <MetricsPanel tasks={tasks} />
         <Box width={1} />
         <StatusPanel
           tasks={tasks}
