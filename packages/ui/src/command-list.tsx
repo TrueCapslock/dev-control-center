@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { ProkomCommand } from '@prokom-dev/config';
 import { TaskState } from '@prokom-dev/status';
+import { Panel } from './panel.js';
 
 export interface MenuGroup {
   id: string;
@@ -9,9 +10,18 @@ export interface MenuGroup {
   count: number;
 }
 
-export type MenuItem = ProkomCommand | MenuGroup;
+export interface ProfileOption {
+  kind: 'profile';
+  id: string;
+  label: string;
+  profile?: string;
+  active: boolean;
+}
+
+export type MenuItem = ProkomCommand | MenuGroup | ProfileOption;
 
 const CONTENT_ROWS = 8;
+const PANEL_HEIGHT = CONTENT_ROWS + 2;
 
 interface CommandListProps {
   items: MenuItem[];
@@ -20,6 +30,16 @@ interface CommandListProps {
   selCount?: number;
   breadcrumb?: string;
   tasks?: ReadonlyMap<string, TaskState>;
+  width: number;
+  focused?: boolean;
+}
+
+function isGroup(item: MenuItem): item is MenuGroup {
+  return 'count' in item;
+}
+
+function isProfileOption(item: MenuItem): item is ProfileOption {
+  return 'kind' in item && item.kind === 'profile';
 }
 
 export const CommandList: React.FC<CommandListProps> = ({
@@ -29,6 +49,8 @@ export const CommandList: React.FC<CommandListProps> = ({
   selCount,
   breadcrumb,
   tasks,
+  width,
+  focused = false,
 }) => {
   const total = items.length;
   const half = Math.floor(CONTENT_ROWS / 2);
@@ -47,17 +69,24 @@ export const CommandList: React.FC<CommandListProps> = ({
   }
 
   return (
-    <Box flexDirection="column" minWidth={30} borderStyle="round" borderColor="white">
-      <Box paddingLeft={1}>
-        <Text color="cyan">Commands</Text>
-        {selCount && selCount > 0 ? (
-          <Text color="green"> ({selCount} selected)</Text>
-        ) : null}
-        {breadcrumb ? (
-          <Text color="gray"> {breadcrumb}</Text>
-        ) : null}
-      </Box>
-
+    <Panel
+      title="Commands"
+      titleColor={focused ? 'cyan' : 'white'}
+      borderColor={focused ? 'cyan' : 'white'}
+      height={PANEL_HEIGHT}
+      width={width}
+      titleExtraWidth={(selCount && selCount > 0 ? ` (${selCount} selected)`.length : 0) + (breadcrumb ? ` ${breadcrumb}`.length : 0)}
+      titleExtra={(
+        <>
+          {selCount && selCount > 0 ? (
+            <Text color="green"> ({selCount} selected)</Text>
+          ) : null}
+          {breadcrumb ? (
+            <Text color="gray"> {breadcrumb}</Text>
+          ) : null}
+        </>
+      )}
+    >
       {total === 0 && (
         <Box paddingLeft={1}>
           <Text color="gray">No commands configured</Text>
@@ -73,7 +102,17 @@ export const CommandList: React.FC<CommandListProps> = ({
         const isCursor = actualIndex === selectedIndex;
         const cursor = isCursor ? '❯' : ' ';
 
-        if (!('count' in item)) {
+        if (isProfileOption(item)) {
+          return (
+            <Box key={item.id} paddingLeft={1}>
+              <Text color={isCursor ? 'green' : item.active ? 'cyan' : undefined}>
+                {cursor} {item.active ? '●' : '○'} {item.label}
+              </Text>
+            </Box>
+          );
+        }
+
+        if (!isGroup(item)) {
           const checked = multiSelected?.has(item.id);
           const sel = checked ? '\u2713' : ' ';
           const prefix = `${cursor}[${sel}]`;
@@ -125,6 +164,6 @@ export const CommandList: React.FC<CommandListProps> = ({
       {Array.from({ length: padRows }).map((_, i) => (
         <Box key={`pad-${i}`} height={1}><Text> </Text></Box>
       ))}
-    </Box>
+    </Panel>
   );
 };

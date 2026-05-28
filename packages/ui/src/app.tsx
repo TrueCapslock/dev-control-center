@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Box, Text, useInput, useApp } from 'ink';
+import { Box, Text, useInput, useApp, useStdout } from 'ink';
 import { Runtime } from '@prokom-dev/core';
 import { ProkomConfig, ProkomCommand } from '@prokom-dev/config';
 import { TaskState } from '@prokom-dev/status';
-import { CommandList, MenuGroup, MenuItem } from './command-list.js';
+import { CommandList, MenuGroup, MenuItem, ProfileOption } from './command-list.js';
 import { MetricsPanel } from './metrics-panel.js';
 import { StatusPanel } from './status-panel.js';
-import { ConfirmDialog } from './confirm-dialog.js';
-import { InputPrompt } from './input-prompt.js';
 
 interface AppProps {
   config: ProkomConfig;
@@ -17,8 +15,52 @@ interface AppProps {
 type Mode = 'normal' | 'search' | 'confirm' | 'input';
 type Pane = 'commands' | 'status';
 
+const PROFILE_GROUP_ID = '__profiles';
+const GROUP_ORDER = ['Development', 'Build', 'Deploy', 'Management', 'Demo'];
+
+function mergeCommands(base: ProkomCommand[], overrides: ProkomCommand[]): ProkomCommand[] {
+  const overrideMap = new Map(overrides.map((cmd) => [cmd.id, cmd]));
+  const seen = new Set<string>();
+  const merged: ProkomCommand[] = [];
+
+  for (const cmd of base) {
+    seen.add(cmd.id);
+    merged.push(overrideMap.get(cmd.id) ?? cmd);
+  }
+
+  for (const cmd of overrides) {
+    if (!seen.has(cmd.id)) merged.push(cmd);
+  }
+
+  return merged;
+}
+
+function commandsForProfile(config: ProkomConfig, profile?: string): ProkomCommand[] {
+  const base = config.baseCommands ?? config.commands;
+  const profileCommands = profile ? (config.profiles?.[profile]?.commands ?? []) : [];
+  const commands = profile ? mergeCommands(base, profileCommands) : [...base];
+
+  for (const pipeline of config.pipelines ?? []) {
+    commands.push({
+      id: pipeline.id,
+      label: `▶ ${pipeline.label}`,
+      description: `Run pipeline: ${pipeline.steps.join(' → ')}`,
+      command: '',
+      confirm: pipeline.confirm,
+      pipelineSteps: pipeline.steps,
+    });
+  }
+
+  return commands;
+}
+
+function isProfileOption(item: MenuItem): item is ProfileOption {
+  return 'kind' in item && item.kind === 'profile';
+}
+
 export const App: React.FC<AppProps> = ({ config, runtime }) => {
   const { exit } = useApp();
+  const { stdout } = useStdout();
   const [mode, setMode] = useState<Mode>('normal');
   const [focusedPane, setFocusedPane] = useState<Pane>('commands');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -34,6 +76,21 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   );
   const [currentGroup, setCurrentGroup] = useState<string | null>(null);
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+  const [activeProfile, setActiveProfile] = useState<string | undefined>(config.profile);
+  const terminalColumns = stdout?.columns ?? 120;
+  const availablePaneWidth = Math.max(90, terminalColumns - 4);
+  const statusPaneWidth = 28;
+  const commandPaneWidth = Math.min(52, Math.max(34, Math.floor(availablePaneWidth * 0.34)));
+  const outputPaneWidth = Math.max(30, availablePaneWidth - commandPaneWidth - statusPaneWidth - 2);
+
+  const activeCommands = useMemo(
+    () => commandsForProfile(config, activeProfile),
+    [activeProfile, config],
+  );
+
+  useEffect(() => {
+    runtime.taskRunner.setCommands(activeCommands);
+  }, [activeCommands, runtime]);
 
   const modeRef = useRef(mode);
   modeRef.current = mode;
@@ -56,30 +113,64 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   const groups = useMemo(() => {
     const seen = new Set<string>();
     const result: MenuGroup[] = [];
-    for (const cmd of config.commands) {
+    for (const cmd of activeCommands) {
       if (cmd.group && !seen.has(cmd.group)) {
         seen.add(cmd.group);
-        const count = config.commands.filter(
+        const count = activeCommands.filter(
           (c) => c.group === cmd.group,
         ).length;
         result.push({ id: `__group_${cmd.group}`, label: cmd.group, count });
       }
     }
-    return result;
-  }, [config.commands]);
+    return result.sort((a, b) => {
+      const ai = GROUP_ORDER.indexOf(a.label);
+      const bi = GROUP_ORDER.indexOf(b.label);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return a.label.localeCompare(b.label);
+    });
+  }, [activeCommands]);
 
   const hasGroups = groups.length > 0;
+  const profileNames = Object.keys(config.profiles ?? {});
+  const hasProfiles = profileNames.length > 0;
 
   const menuItems = useMemo((): MenuItem[] => {
-    if (!hasGroups) return config.commands;
-
-    if (currentGroup) {
-      return config.commands.filter((c) => c.group === currentGroup);
+    if (currentGroup === PROFILE_GROUP_ID) {
+      const defaultProfile: ProfileOption = {
+        kind: 'profile',
+        id: '__profile_default',
+        label: 'Default',
+        active: !activeProfile,
+      };
+      return [
+        defaultProfile,
+        ...profileNames.map((profile): ProfileOption => ({
+          kind: 'profile',
+          id: `__profile_${profile}`,
+          label: profile,
+          profile,
+          active: activeProfile === profile,
+        })),
+      ];
     }
 
-    const ungrouped = config.commands.filter((c) => !c.group);
-    return [...groups, ...ungrouped];
-  }, [config.commands, groups, hasGroups, currentGroup]);
+    const profileGroup: MenuGroup[] = hasProfiles
+      ? [{ id: PROFILE_GROUP_ID, label: 'Profiles', count: profileNames.length + 1 }]
+      : [];
+
+    const pipelines = activeCommands.filter((c) => c.pipelineSteps);
+    const ungrouped = activeCommands.filter((c) => !c.group && !c.pipelineSteps);
+
+    if (!hasGroups) return [...ungrouped, ...profileGroup, ...pipelines];
+
+    if (currentGroup) {
+      return activeCommands.filter((c) => c.group === currentGroup);
+    }
+
+    return [...groups, ...ungrouped, ...profileGroup, ...pipelines];
+  }, [activeCommands, activeProfile, currentGroup, groups, hasGroups, hasProfiles, profileNames]);
 
   const filteredItems = useMemo((): MenuItem[] => {
     if (!searchQuery) return menuItems;
@@ -95,10 +186,20 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   }, [filteredItems.length, selectedIndex]);
 
   const breadcrumb = hasGroups && currentGroup
-    ? `› ${currentGroup}`
+    ? `› ${currentGroup === PROFILE_GROUP_ID ? 'Profiles' : currentGroup}`
     : undefined;
 
   const selCount = multiSelected.size;
+  const selectedItem = filteredItems[selectedIndex];
+  const footerText = selectedItem
+    ? isProfileOption(selectedItem)
+      ? selectedItem.active
+        ? `Active profile: ${selectedItem.label}`
+        : `Switch to ${selectedItem.label} profile`
+      : 'count' in selectedItem
+        ? `Open ${selectedItem.label}`
+        : selectedItem.description ?? 'Enter to run, Space to select, / to search, Tab to focus output'
+    : 'Enter to run, Space to select, / to search, Tab to focus output';
 
   const runSingle = useCallback((cmd: ProkomCommand) => {
     if (cmd.toggle) {
@@ -121,8 +222,16 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   }, [runtime]);
 
   function selectItem(item: MenuItem): void {
+    if (isProfileOption(item)) {
+      setActiveProfile(item.profile);
+      setCurrentGroup(null);
+      setSelectedIndex(0);
+      setMultiSelected(new Set());
+      return;
+    }
+
     if ('count' in item) {
-      setCurrentGroup(item.label);
+      setCurrentGroup(item.id === PROFILE_GROUP_ID ? PROFILE_GROUP_ID : item.label);
       setSelectedIndex(0);
       return;
     }
@@ -132,7 +241,7 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   function runMultiSelected(): void {
     const selected = new Set(multiSelected);
     setMultiSelected(new Set());
-    for (const cmd of config.commands) {
+    for (const cmd of activeCommands) {
       if (selected.has(cmd.id)) {
         if (!cmd.confirm) {
           runtime.taskRunner.run(cmd);
@@ -299,7 +408,9 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
       }
     } else if (input === ' ') {
       const item = filteredItems[selectedIndex];
-      if (item && !('count' in item)) {
+      if (item && isProfileOption(item)) {
+        selectItem(item);
+      } else if (item && !('count' in item)) {
         setMultiSelected((prev) => {
           const next = new Set(prev);
           if (next.has(item.id)) {
@@ -310,7 +421,7 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
           return next;
         });
       } else if (item) {
-        setCurrentGroup(item.label);
+        setCurrentGroup(item.id === PROFILE_GROUP_ID ? PROFILE_GROUP_ID : item.label);
         setSelectedIndex(0);
       }
     } else if (input === '/') {
@@ -350,10 +461,10 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
             <Text color="magenta">⊞ {runtime.workspaces.length}</Text>
           </Text>
         )}
-        {config.profile && (
+        {activeProfile && (
           <Text>
             <Text color="gray"> </Text>
-            <Text color="yellow">⚙ {config.profile}</Text>
+            <Text color="yellow">⚙ {activeProfile}</Text>
           </Text>
         )}
         {runtime.ci.isCI && (
@@ -372,32 +483,34 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
         </Box>
       )}
 
-      {mode === 'confirm' && confirmingCmd && (
-        <ConfirmDialog command={confirmingCmd} />
-      )}
-
       <Box marginTop={1}>
         <CommandList
           items={filteredItems}
+          width={commandPaneWidth}
           tasks={tasks}
           selectedIndex={selectedIndex}
           multiSelected={multiSelected}
           selCount={selCount}
           breadcrumb={breadcrumb}
+          focused={focusedPane === 'commands'}
         />
         <Box width={1} />
         <MetricsPanel tasks={tasks} />
         <Box width={1} />
         <StatusPanel
           tasks={tasks}
+          width={outputPaneWidth}
           scrollOffsets={scrollOffsets}
           focusedPane={focusedPane}
+          confirmingCommand={mode === 'confirm' ? confirmingCmd : null}
+          inputCommand={mode === 'input' ? inputCmd : null}
+          inputValue={inputValue}
         />
       </Box>
 
-      {mode === 'input' && inputCmd && (
-        <InputPrompt command={inputCmd} value={inputValue} />
-      )}
+      <Box>
+        <Text color="gray">{footerText}</Text>
+      </Box>
     </Box>
   );
 };

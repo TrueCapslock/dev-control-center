@@ -96,6 +96,8 @@ export async function loadConfig(
     config.commands = mergeCommands(allPresetCommands, config.commands);
   }
 
+  config.baseCommands = [...config.commands];
+
   if (profile && config.profiles?.[profile]) {
     config.commands = mergeCommands(
       config.commands,
@@ -109,6 +111,7 @@ export async function loadConfig(
       config.commands.push({
         id: pipeline.id,
         label: `▶ ${pipeline.label}`,
+        description: `Run pipeline: ${pipeline.steps.join(' → ')}`,
         command: '',
         confirm: pipeline.confirm,
         pipelineSteps: pipeline.steps,

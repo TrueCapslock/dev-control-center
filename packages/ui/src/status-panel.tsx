@@ -1,6 +1,8 @@
 import React from 'react';
 import { Box, Text } from 'ink';
+import { ProkomCommand } from '@prokom-dev/config';
 import { TaskState } from '@prokom-dev/status';
+import { Panel } from './panel.js';
 
 function sanitizeOutput(text: string): string {
   return text
@@ -14,13 +16,16 @@ interface StatusPanelProps {
   tasks: Map<string, TaskState>;
   scrollOffsets: Map<string, number>;
   focusedPane: 'commands' | 'status';
+  confirmingCommand?: ProkomCommand | null;
+  inputCommand?: ProkomCommand | null;
+  inputValue?: string;
+  width: number;
 }
 
-const PANEL_HEIGHT = 11;
+const PANEL_HEIGHT = 10;
 const CONTENT_ROWS = PANEL_HEIGHT - 2;
-const TITLE_ROWS = 1;
 const TASK_HEADER_ROWS = 1;
-const OUTPUT_ROWS = CONTENT_ROWS - TITLE_ROWS - TASK_HEADER_ROWS;
+const OUTPUT_ROWS = CONTENT_ROWS - TASK_HEADER_ROWS;
 
 const STATUS_STYLE: Record<TaskState['status'], { icon: string; color: string; label: string }> = {
   idle:    { icon: '\u25CB', color: 'gray',   label: 'IDLE' },
@@ -41,6 +46,10 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   tasks,
   scrollOffsets,
   focusedPane,
+  confirmingCommand,
+  inputCommand,
+  inputValue = '',
+  width,
 }) => {
   const entries = Array.from(tasks.values()).sort(
     (a, b) => (b.startTime || 0) - (a.startTime || 0),
@@ -48,7 +57,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
 
   const isFocused = focusedPane === 'status';
   const statusColor = isFocused ? 'cyan' : 'white';
-  const task = entries[0];
+  const task = confirmingCommand || inputCommand ? undefined : entries[0];
   const cleaned = task?.output ? sanitizeOutput(task.output) : '';
   const lines = cleaned ? cleaned.split('\n') : [];
   const offset = task ? (scrollOffsets.get(task.id) ?? 0) : 0;
@@ -57,29 +66,63 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   const showLines = lines.slice(startLine, endLine);
   const hiddenAbove = startLine;
   const hiddenBelow = offset;
+  const titleExtraWidth = (hiddenAbove > 0 ? `  ↑ ${hiddenAbove} above`.length : 0)
+    + (hiddenBelow > 0 ? `  ↓ ${hiddenBelow} below`.length : 0);
 
   return (
-    <Box
-      flexDirection="column"
-      flexGrow={1}
-      minWidth={20}
-      height={PANEL_HEIGHT}
-      borderStyle="round"
+    <Panel
+      title="Output"
+      titleColor={isFocused ? 'cyan' : 'white'}
       borderColor={statusColor}
-    >
-      <Box paddingLeft={1}>
-        <Text color={isFocused ? 'cyan' : undefined}>
-          Output
-        </Text>
+      width={width}
+      height={PANEL_HEIGHT}
+      titleExtraWidth={titleExtraWidth}
+      titleExtra={(
+        <>
         {hiddenAbove > 0 ? (
           <Text color="gray">  ↑ {hiddenAbove} above</Text>
         ) : null}
         {hiddenBelow > 0 ? (
           <Text color="gray">  ↓ {hiddenBelow} below</Text>
         ) : null}
-      </Box>
+        </>
+      )}
+    >
 
-      {!task && (
+      {confirmingCommand ? (
+        <Box flexDirection="column" paddingLeft={2}>
+          <Box>
+            <Text color="yellow">Run </Text>
+            <Text bold color="cyan">{confirmingCommand.label}</Text>
+            <Text color="yellow">?</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text color="gray">Enter or Y to confirm</Text>
+          </Box>
+          <Box>
+            <Text color="gray">Esc or N to cancel</Text>
+          </Box>
+        </Box>
+      ) : null}
+
+      {inputCommand ? (
+        <Box flexDirection="column" paddingLeft={2}>
+          <Box>
+            <Text color="cyan">{inputCommand.input?.message ?? 'Input:'}</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text wrap="truncate-end">
+              <Text>{inputValue}</Text>
+              <Text color="gray">{inputValue ? '█' : (inputCommand.input?.placeholder ?? '')}</Text>
+            </Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text color="gray">Enter to confirm, Esc to cancel</Text>
+          </Box>
+        </Box>
+      ) : null}
+
+      {!task && !confirmingCommand && !inputCommand && (
         <Box paddingLeft={2}>
           <Text color="gray">No tasks yet</Text>
         </Box>
@@ -124,6 +167,6 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
           </Box>
         );
       })() : null}
-    </Box>
+    </Panel>
   );
 };

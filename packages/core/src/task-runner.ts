@@ -41,6 +41,10 @@ export class TaskRunner {
     private commands: ProkomCommand[] = [],
   ) {}
 
+  setCommands(commands: ProkomCommand[]): void {
+    this.commands = commands;
+  }
+
   async run(command: ProkomCommand, skipClear = false): Promise<void> {
     if (command.toggle) {
       command = { ...command, command: command.toggle.start };

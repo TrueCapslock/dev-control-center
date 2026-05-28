@@ -6,6 +6,7 @@ export interface ProkomToggle {
 export interface ProkomCommand {
   id: string;
   label: string;
+  description?: string;
   command?: string;
   toggle?: ProkomToggle;
   confirm?: boolean;
@@ -41,6 +42,7 @@ export interface ProkomConfig {
   plugins?: string[];
   profiles?: Record<string, ProkomProfile>;
   profile?: string;
+  baseCommands?: ProkomCommand[];
   notifications?: boolean;
   pipelines?: ProkomPipeline[];
 }
