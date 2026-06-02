@@ -1,6 +1,6 @@
 {
   "name": "@prokom-dev/status",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Observable task state store for prokom-dev",
   "type": "module",
   "main": "dist/index.js",

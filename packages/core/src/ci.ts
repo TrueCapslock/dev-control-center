@@ -16,6 +16,9 @@ export function detectCI(): CIInfo {
   if (process.env.JENKINS_URL) {
     return { isCI: true, name: 'Jenkins' };
   }
+  if (process.env.TF_BUILD) {
+    return { isCI: true, name: 'Azure Pipelines' };
+  }
   if (process.env.CI) {
     return { isCI: true, name: 'CI' };
   }

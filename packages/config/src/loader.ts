@@ -36,7 +36,7 @@ async function resolvePreset(
   }
 }
 
-function mergeCommands(
+export function mergeCommands(
   base: ProkomCommand[],
   overrides: ProkomCommand[],
 ): ProkomCommand[] {

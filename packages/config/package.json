@@ -1,6 +1,6 @@
 {
   "name": "@prokom-dev/config",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Config loading and types for prokom-dev",
   "type": "module",
   "main": "dist/index.js",

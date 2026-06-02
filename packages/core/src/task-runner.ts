@@ -17,7 +17,7 @@ class FileWatcher {
         this.debounceTimer = setTimeout(onChange, 500);
       });
     } catch {
-      // recursive watch not supported on this platform
+      console.warn(`[prokom] watch mode: recursive file watching not supported on ${dir}`);
     }
   }
 
@@ -110,13 +110,15 @@ export class TaskRunner {
     child.on('close', (exitCode) => {
       this.running.delete(command.id);
 
+      const resultStatus = exitCode === 0 ? 'success' as const : 'failure' as const;
+
       const result = {
         exitCode: exitCode ?? undefined,
-        status: exitCode === 0 ? 'success' : 'failure',
+        status: resultStatus,
       };
 
       this.statusStore.updateTask(command.id, {
-        status: result.status as 'success' | 'failure',
+        status: resultStatus,
         exitCode: result.exitCode,
         endTime: Date.now(),
       });
@@ -154,11 +156,7 @@ export class TaskRunner {
   abort(id: string): void {
     const child = this.running.get(id);
     if (child) {
-      try {
-        process.kill(-child.pid!, 'SIGTERM');
-      } catch {
-        child.kill('SIGTERM');
-      }
+      this.killChild(child);
       this.running.delete(id);
     }
     this.stopWatcher(id);
@@ -166,11 +164,7 @@ export class TaskRunner {
 
   abortAll(): void {
     for (const [id, child] of this.running) {
-      try {
-        process.kill(-child.pid!, 'SIGTERM');
-      } catch {
-        child.kill('SIGTERM');
-      }
+      this.killChild(child);
       this.running.delete(id);
     }
     for (const [id] of this.watchers) {
@@ -183,11 +177,7 @@ export class TaskRunner {
     if (child) {
       child.removeAllListeners('close');
       child.removeAllListeners('error');
-      try {
-        process.kill(-child.pid!, 'SIGTERM');
-      } catch {
-        child.kill('SIGTERM');
-      }
+      this.killChild(child);
       this.running.delete(command.id);
     }
     this.stopWatcher(command.id);
@@ -363,12 +353,20 @@ export class TaskRunner {
         }
       };
       const cleanup = () => {
+        clearTimeout(safetyTimer);
         this.eventBus.off('task:complete', onComplete);
         this.eventBus.off('task:error', onError);
       };
+      const safetyTimer = setTimeout(() => {
+        cleanup();
+        resolve({ exitCode: -1 });
+      }, 30_000);
       this.eventBus.on('task:complete', onComplete);
       this.eventBus.on('task:error', onError);
-      this.run(stepCmd, true);
+      this.run(stepCmd, true).catch(() => {
+        cleanup();
+        resolve({ exitCode: -1 });
+      });
     });
   }
 
@@ -379,6 +377,22 @@ export class TaskRunner {
     });
     this.watchers.set(command.id, watcher);
     this.statusStore.updateTask(command.id, { watchMode: true });
+  }
+
+  private killChild(child: ChildProcess): void {
+    if (child.pid) {
+      try {
+        process.kill(-child.pid, 'SIGTERM');
+        return;
+      } catch {
+        // fall through to child.kill()
+      }
+    }
+    try {
+      child.kill('SIGTERM');
+    } catch {
+      // already dead
+    }
   }
 
   private stopWatcher(id: string): void {

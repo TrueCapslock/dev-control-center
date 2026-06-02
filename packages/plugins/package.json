@@ -1,6 +1,6 @@
 {
   "name": "@prokom-dev/plugins",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Plugin manager and hook system for prokom-dev",
   "type": "module",
   "main": "dist/index.js",

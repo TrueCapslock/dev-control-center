@@ -1,6 +1,6 @@
 {
   "name": "prokom-preset-node",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Node.js preset commands for prokom-dev",
   "type": "module",
   "main": "dist/index.js",

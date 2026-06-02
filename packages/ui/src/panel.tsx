@@ -7,6 +7,8 @@ interface PanelProps {
   borderColor?: string;
   titleExtra?: ReactNode;
   titleExtraWidth?: number;
+  hiddenAbove?: number;
+  hiddenBelow?: number;
   children: ReactNode;
   height: number;
   width: number;
@@ -18,14 +20,24 @@ export const Panel: React.FC<PanelProps> = ({
   borderColor = 'white',
   titleExtra,
   titleExtraWidth = 0,
+  hiddenAbove,
+  hiddenBelow,
   children,
   height,
   width,
 }) => {
   const contentHeight = Math.max(0, height - 2);
   const innerWidth = Math.max(0, width - 2);
-  const topFillWidth = Math.max(0, width - title.length - titleExtraWidth - 5);
-  const bottomFillWidth = Math.max(0, width - 2);
+
+  const showAbove = hiddenAbove != null && hiddenAbove > 0;
+  const showBelow = hiddenBelow != null && hiddenBelow > 0;
+  const aboveText = showAbove ? `↑${hiddenAbove} more` : '';
+  const belowText = showBelow ? `↓${hiddenBelow} more` : '';
+  const aboveLen = showAbove ? aboveText.length + 1 : 0;
+  const belowLen = showBelow ? belowText.length + 1 : 0;
+
+  const topFillWidth = Math.max(0, width - title.length - titleExtraWidth - aboveLen - 5);
+  const bottomFillWidth = Math.max(0, width - belowLen - 2);
 
   return (
     <Box flexDirection="column" height={height} width={width}>
@@ -35,7 +47,8 @@ export const Panel: React.FC<PanelProps> = ({
         {titleExtra}
         <Text color={borderColor}> </Text>
         <Text color={borderColor}>{'─'.repeat(topFillWidth)}</Text>
-        <Text color={borderColor}>╮</Text>
+        {aboveText ? <Text color="gray">{aboveText}</Text> : null}
+        <Text color={borderColor}>{aboveText ? '─' : ''}╮</Text>
       </Box>
       <Box height={contentHeight} width={width}>
         <Box flexDirection="column" width={1}>
@@ -55,7 +68,8 @@ export const Panel: React.FC<PanelProps> = ({
       <Box width={width}>
         <Text color={borderColor}>╰</Text>
         <Text color={borderColor}>{'─'.repeat(bottomFillWidth)}</Text>
-        <Text color={borderColor}>╯</Text>
+        {belowText ? <Text color="gray">{belowText}</Text> : null}
+        <Text color={borderColor}>{belowText ? '─' : ''}╯</Text>
       </Box>
     </Box>
   );

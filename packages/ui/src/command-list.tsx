@@ -54,14 +54,15 @@ export const CommandList: React.FC<CommandListProps> = ({
   const contentRows = menuRows;
   const panelHeight = menuRows + 2;
   const total = items.length;
+  const noCommands = total === 0;
+
   const half = Math.floor(contentRows / 2);
   let start = Math.max(0, selectedIndex - half);
   start = Math.min(start, Math.max(0, total - contentRows));
   const visible = items.slice(start, start + contentRows);
   const hiddenAbove = start;
   const hiddenBelow = total - (start + visible.length);
-  const noCommands = total === 0;
-  const padRows = Math.max(0, contentRows - (hiddenAbove > 0 ? 1 : 0) - visible.length - (hiddenBelow > 0 ? 1 : 0) - (noCommands ? 1 : 0));
+  const padRows = Math.max(0, contentRows - visible.length - (noCommands ? 1 : 0));
 
   function getLabel(item: ProkomCommand): string {
     if (!item.toggle) return item.label;
@@ -76,6 +77,8 @@ export const CommandList: React.FC<CommandListProps> = ({
       borderColor={focused ? 'cyan' : 'white'}
       height={panelHeight}
       width={width}
+      hiddenAbove={hiddenAbove}
+      hiddenBelow={hiddenBelow}
       titleExtraWidth={(selCount && selCount > 0 ? ` (${selCount} selected)`.length : 0) + (breadcrumb ? ` ${breadcrumb}`.length : 0)}
       titleExtra={(
         <>
@@ -91,11 +94,6 @@ export const CommandList: React.FC<CommandListProps> = ({
       {total === 0 && (
         <Box paddingLeft={1}>
           <Text color="gray">No commands configured</Text>
-        </Box>
-      )}
-      {hiddenAbove > 0 && (
-        <Box paddingLeft={1}>
-          <Text color="gray">↑ {hiddenAbove} more</Text>
         </Box>
       )}
       {visible.map((item, i) => {
@@ -156,11 +154,6 @@ export const CommandList: React.FC<CommandListProps> = ({
           </Box>
         );
       })}
-      {hiddenBelow > 0 && (
-        <Box paddingLeft={1}>
-          <Text color="gray">↓ {hiddenBelow} more</Text>
-        </Box>
-      )}
 
       {Array.from({ length: padRows }).map((_, i) => (
         <Box key={`pad-${i}`} height={1}><Text> </Text></Box>

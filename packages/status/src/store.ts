@@ -13,7 +13,7 @@ export class StatusStore {
   }
 
   getAllTasks(): ReadonlyMap<string, TaskState> {
-    return this.tasks;
+    return new Map(this.tasks);
   }
 
   updateTask(id: string, update: Partial<TaskState>): void {

@@ -2,7 +2,7 @@ import { execSync } from 'child_process';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Box, Text, useInput, useApp, useStdout } from 'ink';
 import { Runtime } from '@prokom-dev/core';
-import { ProkomConfig, ProkomCommand } from '@prokom-dev/config';
+import { ProkomConfig, ProkomCommand, mergeCommands } from '@prokom-dev/config';
 import { TaskState } from '@prokom-dev/status';
 import { CommandList, MenuGroup, MenuItem, ProfileOption } from './command-list.js';
 import { MetricsPanel } from './metrics-panel.js';
@@ -18,23 +18,6 @@ type Pane = 'commands' | 'status';
 
 const PROFILE_GROUP_ID = '__profiles';
 const GROUP_ORDER = ['Development', 'Build', 'Deploy', 'Management', 'Demo'];
-
-function mergeCommands(base: ProkomCommand[], overrides: ProkomCommand[]): ProkomCommand[] {
-  const overrideMap = new Map(overrides.map((cmd) => [cmd.id, cmd]));
-  const seen = new Set<string>();
-  const merged: ProkomCommand[] = [];
-
-  for (const cmd of base) {
-    seen.add(cmd.id);
-    merged.push(overrideMap.get(cmd.id) ?? cmd);
-  }
-
-  for (const cmd of overrides) {
-    if (!seen.has(cmd.id)) merged.push(cmd);
-  }
-
-  return merged;
-}
 
 function commandsForProfile(config: ProkomConfig, profile?: string): ProkomCommand[] {
   const base = config.baseCommands ?? config.commands;

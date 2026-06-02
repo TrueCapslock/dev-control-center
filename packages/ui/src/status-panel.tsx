@@ -66,8 +66,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   const showLines = lines.slice(startLine, endLine);
   const hiddenAbove = startLine;
   const hiddenBelow = offset;
-  const titleExtraWidth = (hiddenAbove > 0 ? `  ↑ ${hiddenAbove} above`.length : 0)
-    + (hiddenBelow > 0 ? `  ↓ ${hiddenBelow} below`.length : 0);
+  const titleExtraWidth = hiddenAbove > 0 ? `  ↑ ${hiddenAbove} above`.length : 0;
 
   return (
     <Panel
@@ -76,17 +75,12 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
       borderColor={statusColor}
       width={width}
       height={menuRows + 2}
+      hiddenAbove={hiddenAbove}
+      hiddenBelow={hiddenBelow}
       titleExtraWidth={titleExtraWidth}
-      titleExtra={(
-        <>
-        {hiddenAbove > 0 ? (
-          <Text color="gray">  ↑ {hiddenAbove} above</Text>
-        ) : null}
-        {hiddenBelow > 0 ? (
-          <Text color="gray">  ↓ {hiddenBelow} below</Text>
-        ) : null}
-        </>
-      )}
+      titleExtra={hiddenAbove > 0 ? (
+        <Text color="gray">  ↑ {hiddenAbove} above</Text>
+      ) : null}
     >
 
       {confirmingCommand ? (
