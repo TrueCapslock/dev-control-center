@@ -7,9 +7,8 @@ import { Panel } from './panel.js';
 
 interface MetricsPanelProps {
   tasks: Map<string, TaskState>;
+  menuRows: number;
 }
-
-const PANEL_HEIGHT = 10;
 const METRICS_FILE = path.join(process.cwd(), '.prokom', 'metrics.json');
 
 interface MetricsState {
@@ -28,11 +27,13 @@ interface MetricsState {
     label: string;
     time?: number;
   };
+  packageVersion: string;
 }
 
 const INITIAL_METRICS: MetricsState = {
   projectRunning: false,
   activeTasks: 0,
+  packageVersion: loadPackageVersion(),
 };
 
 function loadPackageVersion(): string {
@@ -58,6 +59,10 @@ function loadMetrics(): MetricsState {
   } catch {
     return INITIAL_METRICS;
   }
+}
+
+function isBumpTask(task: TaskState): boolean {
+  return task.id === 'bump-version';
 }
 
 function saveMetrics(metrics: MetricsState): void {
@@ -104,53 +109,55 @@ function formatSince(time?: number): string | null {
   return `${Math.floor(minutes / 60)}h ago`;
 }
 
-export const MetricsPanel: React.FC<MetricsPanelProps> = ({ tasks }) => {
+export const MetricsPanel: React.FC<MetricsPanelProps> = ({ tasks, menuRows }) => {
   const [metrics, setMetrics] = useState<MetricsState>(loadMetrics);
-  const [packageVersion] = useState(loadPackageVersion);
-  const entries = Array.from(tasks.values());
-  const runningTasks = entries.filter((task) => task.status === 'running');
-  const latestCurrentTest = entries
-    .filter(isTestTask)
-    .sort((a, b) => (b.endTime ?? b.startTime ?? 0) - (a.endTime ?? a.startTime ?? 0))[0];
-  const latestTestLabel = latestCurrentTest?.label;
-  const latestTestStatus = latestCurrentTest?.status;
-  const latestTestTimeValue = latestCurrentTest?.endTime ?? latestCurrentTest?.startTime;
   const latestTestTime = formatSince(metrics.latestTest?.time);
-  const latestCurrentBuild = entries
-    .filter(isBuildTask)
-    .sort((a, b) => (b.endTime ?? b.startTime ?? 0) - (a.endTime ?? a.startTime ?? 0))[0];
-  const latestBuildStatus = latestCurrentBuild?.status;
-  const latestBuildTimeValue = latestCurrentBuild?.endTime ?? latestCurrentBuild?.startTime;
   const latestBuildTime = formatSince(metrics.latestBuild?.time);
-  const latestGitPush = entries
-    .filter(isSuccessfulGitPushTask)
-    .sort((a, b) => (b.endTime ?? b.startTime ?? 0) - (a.endTime ?? a.startTime ?? 0))[0];
-  const latestGitPushLabel = latestGitPush?.label;
-  const latestGitPushTimeValue = latestGitPush?.endTime ?? latestGitPush?.startTime;
   const lastGitPushTime = formatTimestamp(metrics.lastGitPush?.time);
 
   useEffect(() => {
     setMetrics((previous) => {
+      const entries = Array.from(tasks.values());
+
+      const hasBumpCompleted = entries.some(
+        (t) => isBumpTask(t) && (t.status === 'success' || t.status === 'failure'),
+      );
+
+      const running = entries.filter((t) => t.status === 'running');
+
+      const latestTest = entries
+        .filter(isTestTask)
+        .sort((a, b) => (b.endTime ?? b.startTime ?? 0) - (a.endTime ?? a.startTime ?? 0))[0];
+
+      const latestBuild = entries
+        .filter(isBuildTask)
+        .sort((a, b) => (b.endTime ?? b.startTime ?? 0) - (a.endTime ?? a.startTime ?? 0))[0];
+
+      const latestPush = entries
+        .filter(isSuccessfulGitPushTask)
+        .sort((a, b) => (b.endTime ?? b.startTime ?? 0) - (a.endTime ?? a.startTime ?? 0))[0];
+
       const next: MetricsState = {
-        projectRunning: runningTasks.length > 0,
-        activeTasks: runningTasks.length,
-        latestTest: latestTestLabel && latestTestStatus
+        projectRunning: running.length > 0,
+        activeTasks: running.length,
+        packageVersion: hasBumpCompleted ? loadPackageVersion() : previous.packageVersion,
+        latestTest: latestTest?.label && latestTest?.status
           ? {
-              label: latestTestLabel,
-              status: latestTestStatus,
-              time: latestTestTimeValue,
+              label: latestTest.label,
+              status: latestTest.status,
+              time: latestTest.endTime ?? latestTest.startTime,
             }
           : previous.latestTest,
-        latestBuild: latestBuildStatus
+        latestBuild: latestBuild?.status
           ? {
-              status: latestBuildStatus,
-              time: latestBuildTimeValue,
+              status: latestBuild.status,
+              time: latestBuild.endTime ?? latestBuild.startTime,
             }
           : previous.latestBuild,
-        lastGitPush: latestGitPushLabel
+        lastGitPush: latestPush?.label
           ? {
-              label: latestGitPushLabel,
-              time: latestGitPushTimeValue,
+              label: latestPush.label,
+              time: latestPush.endTime ?? latestPush.startTime,
             }
           : previous.lastGitPush,
       };
@@ -158,10 +165,10 @@ export const MetricsPanel: React.FC<MetricsPanelProps> = ({ tasks }) => {
       saveMetrics(next);
       return next;
     });
-  }, [latestBuildStatus, latestBuildTimeValue, latestGitPushLabel, latestGitPushTimeValue, latestTestLabel, latestTestStatus, latestTestTimeValue, runningTasks.length]);
+  }, [tasks]);
 
   return (
-    <Panel title="Status" width={28} height={PANEL_HEIGHT}>
+    <Panel title="Status" width={28} height={menuRows + 2}>
       <Box paddingLeft={1}>
         <Text color={metrics.projectRunning ? 'yellow' : 'gray'}>
           Project: {metrics.projectRunning ? 'running' : 'idle'}
@@ -176,8 +183,12 @@ export const MetricsPanel: React.FC<MetricsPanelProps> = ({ tasks }) => {
 
       <Box paddingLeft={1}>
         <Text color="gray">
-          Version: {packageVersion}
+          Version: {metrics.packageVersion}
         </Text>
+      </Box>
+
+      <Box paddingLeft={1}>
+        <Text color="gray">{'\u2500'.repeat(24)}</Text>
       </Box>
 
       <Box paddingLeft={1}>

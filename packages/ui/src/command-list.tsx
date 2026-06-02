@@ -20,9 +20,6 @@ export interface ProfileOption {
 
 export type MenuItem = ProkomCommand | MenuGroup | ProfileOption;
 
-const CONTENT_ROWS = 8;
-const PANEL_HEIGHT = CONTENT_ROWS + 2;
-
 interface CommandListProps {
   items: MenuItem[];
   selectedIndex: number;
@@ -32,6 +29,7 @@ interface CommandListProps {
   tasks?: ReadonlyMap<string, TaskState>;
   width: number;
   focused?: boolean;
+  menuRows: number;
 }
 
 function isGroup(item: MenuItem): item is MenuGroup {
@@ -51,16 +49,19 @@ export const CommandList: React.FC<CommandListProps> = ({
   tasks,
   width,
   focused = false,
+  menuRows,
 }) => {
+  const contentRows = menuRows;
+  const panelHeight = menuRows + 2;
   const total = items.length;
-  const half = Math.floor(CONTENT_ROWS / 2);
+  const half = Math.floor(contentRows / 2);
   let start = Math.max(0, selectedIndex - half);
-  start = Math.min(start, Math.max(0, total - CONTENT_ROWS));
-  const visible = items.slice(start, start + CONTENT_ROWS);
+  start = Math.min(start, Math.max(0, total - contentRows));
+  const visible = items.slice(start, start + contentRows);
   const hiddenAbove = start;
   const hiddenBelow = total - (start + visible.length);
   const noCommands = total === 0;
-  const padRows = Math.max(0, CONTENT_ROWS - (hiddenAbove > 0 ? 1 : 0) - visible.length - (hiddenBelow > 0 ? 1 : 0) - (noCommands ? 1 : 0));
+  const padRows = Math.max(0, contentRows - (hiddenAbove > 0 ? 1 : 0) - visible.length - (hiddenBelow > 0 ? 1 : 0) - (noCommands ? 1 : 0));
 
   function getLabel(item: ProkomCommand): string {
     if (!item.toggle) return item.label;
@@ -73,7 +74,7 @@ export const CommandList: React.FC<CommandListProps> = ({
       title="Commands"
       titleColor={focused ? 'cyan' : 'white'}
       borderColor={focused ? 'cyan' : 'white'}
-      height={PANEL_HEIGHT}
+      height={panelHeight}
       width={width}
       titleExtraWidth={(selCount && selCount > 0 ? ` (${selCount} selected)`.length : 0) + (breadcrumb ? ` ${breadcrumb}`.length : 0)}
       titleExtra={(
@@ -146,7 +147,7 @@ export const CommandList: React.FC<CommandListProps> = ({
         return (
           <Box key={group.id} paddingLeft={1}>
             <Text color={isCursor ? 'green' : 'yellow'}>
-              {cursor}  <Text bold>▸ {group.label}</Text>
+              {cursor}  <Text bold>▶ {group.label}</Text>
               {' '}
               <Text color={isCursor ? 'green' : 'gray'}>
                 ({group.count})

@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Box, Text, useInput, useApp, useStdout } from 'ink';
 import { Runtime } from '@prokom-dev/core';
@@ -77,6 +78,7 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   const [currentGroup, setCurrentGroup] = useState<string | null>(null);
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const [activeProfile, setActiveProfile] = useState<string | undefined>(config.profile);
+  const menuRows = config.menuRows ?? 8;
   const terminalColumns = stdout?.columns ?? 120;
   const availablePaneWidth = Math.max(90, terminalColumns - 4);
   const statusPaneWidth = 28;
@@ -105,7 +107,15 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
 
   useEffect(() => {
     const unsub = runtime.statusStore.subscribe((updated) => {
-      setTasks(new Map(updated));
+      const map = new Map(updated);
+      setTasks(map);
+      setScrollOffsets((prev) => {
+        const next = new Map(prev);
+        for (const id of next.keys()) {
+          if (!map.has(id)) next.delete(id);
+        }
+        return next;
+      });
     });
     return unsub;
   }, [runtime]);
@@ -201,7 +211,29 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
         : selectedItem.description ?? 'Enter to run, Space to select, / to search, Tab to focus output'
     : 'Enter to run, Space to select, / to search, Tab to focus output';
 
+  function ensureNpmLogin(): boolean {
+    try {
+      execSync('npm whoami 2>/dev/null', { stdio: 'inherit' });
+      return true;
+    } catch {
+      try {
+        execSync('npm login', { stdio: 'inherit' });
+        return true;
+      } catch {
+        return false;
+      } finally {
+        if (process.stdin.isTTY) {
+          process.stdin.setRawMode(false);
+          process.stdin.setRawMode(true);
+        }
+      }
+    }
+  }
+
   const runSingle = useCallback((cmd: ProkomCommand) => {
+    if (cmd.id === 'deploy-publish' || cmd.id === 'deploy-dry-run') {
+      if (!ensureNpmLogin()) return;
+    }
     if (cmd.toggle) {
       const task = tasksRef.current.get(cmd.id);
       if (task?.status === 'running') {
@@ -243,7 +275,7 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
     setMultiSelected(new Set());
     for (const cmd of activeCommands) {
       if (selected.has(cmd.id)) {
-        if (!cmd.confirm) {
+        if (!cmd.confirm && !cmd.input) {
           runtime.taskRunner.run(cmd);
         }
       }
@@ -286,7 +318,8 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
         setInputCmd(null);
         setMode('normal');
         if (cmd && cmd.command) {
-          const msg = inputValueRef.current;
+          let msg = inputValueRef.current;
+          if (!msg && cmd.input?.default) msg = cmd.input.default;
           runtime.taskRunner.run(
             { ...cmd, command: cmd.command.replace(/\{input\}/g, msg) },
           ).catch((e: unknown) => {
@@ -322,9 +355,10 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
       if (key.upArrow) {
         setSelectedIndex((i) => Math.max(0, i - 1));
       } else if (key.downArrow) {
-        setSelectedIndex((i) =>
-          Math.min(filteredItems.length - 1, i + 1),
-        );
+        setSelectedIndex((i) => {
+          const max = Math.max(0, filteredItems.length - 1);
+          return Math.min(max, i + 1);
+        });
       }
       return;
     }
@@ -396,9 +430,10 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
     if (key.upArrow) {
       setSelectedIndex((i) => Math.max(0, i - 1));
     } else if (key.downArrow) {
-      setSelectedIndex((i) =>
-        Math.min(filteredItems.length - 1, i + 1),
-      );
+      setSelectedIndex((i) => {
+        const max = Math.max(0, filteredItems.length - 1);
+        return Math.min(max, i + 1);
+      });
     } else if (key.return) {
       if (multiSelected.size > 0) {
         runMultiSelected();
@@ -493,9 +528,10 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
           selCount={selCount}
           breadcrumb={breadcrumb}
           focused={focusedPane === 'commands'}
+          menuRows={menuRows}
         />
         <Box width={1} />
-        <MetricsPanel tasks={tasks} />
+        <MetricsPanel tasks={tasks} menuRows={menuRows} />
         <Box width={1} />
         <StatusPanel
           tasks={tasks}
@@ -505,6 +541,7 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
           confirmingCommand={mode === 'confirm' ? confirmingCmd : null}
           inputCommand={mode === 'input' ? inputCmd : null}
           inputValue={inputValue}
+          menuRows={menuRows}
         />
       </Box>
 

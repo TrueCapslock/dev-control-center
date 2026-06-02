@@ -10,7 +10,7 @@ export interface ProkomCommand {
   command?: string;
   toggle?: ProkomToggle;
   confirm?: boolean;
-  input?: { message: string; placeholder?: string };
+  input?: { message: string; placeholder?: string; default?: string };
   watch?: boolean;
   cwd?: string;
   group?: string;
@@ -45,4 +45,5 @@ export interface ProkomConfig {
   baseCommands?: ProkomCommand[];
   notifications?: boolean;
   pipelines?: ProkomPipeline[];
+  menuRows?: number;
 }

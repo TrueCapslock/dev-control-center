@@ -20,12 +20,9 @@ interface StatusPanelProps {
   inputCommand?: ProkomCommand | null;
   inputValue?: string;
   width: number;
+  menuRows: number;
 }
-
-const PANEL_HEIGHT = 10;
-const CONTENT_ROWS = PANEL_HEIGHT - 2;
 const TASK_HEADER_ROWS = 1;
-const OUTPUT_ROWS = CONTENT_ROWS - TASK_HEADER_ROWS;
 
 const STATUS_STYLE: Record<TaskState['status'], { icon: string; color: string; label: string }> = {
   idle:    { icon: '\u25CB', color: 'gray',   label: 'IDLE' },
@@ -50,7 +47,10 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   inputCommand,
   inputValue = '',
   width,
+  menuRows,
 }) => {
+  const contentRows = menuRows;
+  const outputRows = contentRows - TASK_HEADER_ROWS;
   const entries = Array.from(tasks.values()).sort(
     (a, b) => (b.startTime || 0) - (a.startTime || 0),
   );
@@ -62,7 +62,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   const lines = cleaned ? cleaned.split('\n') : [];
   const offset = task ? (scrollOffsets.get(task.id) ?? 0) : 0;
   const endLine = Math.max(0, lines.length - offset);
-  const startLine = Math.max(0, endLine - OUTPUT_ROWS);
+  const startLine = Math.max(0, endLine - outputRows);
   const showLines = lines.slice(startLine, endLine);
   const hiddenAbove = startLine;
   const hiddenBelow = offset;
@@ -75,7 +75,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
       titleColor={isFocused ? 'cyan' : 'white'}
       borderColor={statusColor}
       width={width}
-      height={PANEL_HEIGHT}
+      height={menuRows + 2}
       titleExtraWidth={titleExtraWidth}
       titleExtra={(
         <>
