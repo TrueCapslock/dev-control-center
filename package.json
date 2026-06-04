@@ -1,6 +1,6 @@
 {
   "name": "@hartvig/developer-control-center",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "type": "module",
   "private": false,
   "bin": {

@@ -72,10 +72,7 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   const menuRows = config.menuRows ?? 8;
   const outputRows = config.outputRows ?? menuRows;
   const terminalColumns = stdout?.columns ?? 120;
-  const availablePaneWidth = Math.max(90, terminalColumns - 4);
   const statusPaneWidth = 28;
-  const commandPaneWidth = Math.min(52, Math.max(34, Math.floor(availablePaneWidth * 0.34)));
-  const outputPaneWidth = Math.max(30, availablePaneWidth - commandPaneWidth - statusPaneWidth - 2);
 
   const activeCommands = useMemo(
     () => commandsForProfile(config, activeProfile),
@@ -84,7 +81,18 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
 
   useEffect(() => {
     runtime.taskRunner.setCommands(activeCommands);
-  }, [activeCommands, runtime]);
+  }, [activeCommands, runtime]  );
+
+  const commandPaneWidth = useMemo(() => {
+    const padding = 6;
+    const maxLabel = activeCommands.reduce((max, cmd) => {
+      const label = cmd.toggle ? `Start ${cmd.label}` : cmd.label;
+      return Math.max(max, label.length);
+    }, 0);
+    return Math.min(Math.max(maxLabel + padding + 2, 20), terminalColumns - statusPaneWidth - 6);
+  }, [activeCommands, terminalColumns, statusPaneWidth]);
+
+  const outputPaneWidth = Math.max(20, terminalColumns - commandPaneWidth - statusPaneWidth - 4);
 
   const modeRef = useRef(mode);
   modeRef.current = mode;

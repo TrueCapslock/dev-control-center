@@ -16,7 +16,7 @@ export default {
     },
     {
       id: 'test',
-      label: 'Test all packages',
+      label: 'Run all tests',
       description: 'Run the full Vitest suite once.',
       command: 'npm test',
       group: 'Development',
@@ -108,7 +108,7 @@ export default {
       id: 'status-git',
       label: 'Git status',
       description: 'Show concise git working-tree status.',
-      command: 'git status --short',
+      command: 'git status',
       group: 'Management',
     },
     {
@@ -152,12 +152,16 @@ export default {
         {
           id: 'build',
           label: 'Build (CI)',
+          description: 'Build for CI profile',
           command: 'npm run build',
+          group: 'Build',
         },
         {
           id: 'status-git',
           label: 'Check git diff',
+          description: 'Show concise git working-tree status.',
           command: 'git diff --stat',
+          group: 'Management',
         },
       ],
     },
