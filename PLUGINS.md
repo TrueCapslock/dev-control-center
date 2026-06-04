@@ -1,6 +1,6 @@
 # Plugin Author Guide
 
-prokom-dev supports a plugin system that hooks into the task lifecycle. Plugins are npm packages loaded at startup.
+developer-control-center supports a plugin system that hooks into the task lifecycle. Plugins are npm packages loaded at startup.
 
 ## Plugin Interface
 
@@ -32,7 +32,7 @@ interface ProkomPlugin {
 ### 1. Create the package
 
 ```
-my-prokom-plugin/
+my-dcc-plugin/
 ├── package.json
 ├── index.js
 └── README.md
@@ -58,9 +58,9 @@ export default {
 ### 3. Use it in config
 
 ```js
-// prokom.config.js
+// dcc.config.js
 export default {
-  plugins: ['my-prokom-plugin'],
+  plugins: ['my-dcc-plugin'],
   commands: [ /* ... */ ],
 };
 ```
@@ -119,12 +119,7 @@ export default {
 
 ## Presets
 
-Presets are reusable command collections published as `prokom-preset-<name>`:
-
-```
-prokom-preset-node/    → presets: ['node']
-prokom-preset-react/   → presets: ['react']
-```
+Presets are reusable command collections. Built-in presets are `node` and `react`.
 
 A preset exports a `ProkomPreset`:
 

@@ -1,13 +1,21 @@
 {
-  "files": [],
-  "references": [
-    { "path": "packages/config" },
-    { "path": "packages/status" },
-    { "path": "packages/plugins" },
-    { "path": "packages/preset-node" },
-    { "path": "packages/preset-react" },
-    { "path": "packages/core" },
-    { "path": "packages/ui" },
-    { "path": "packages/cli" }
-  ]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "jsx": "react-jsx",
+    "outDir": "dist",
+    "rootDir": "src",
+    "composite": false
+  },
+  "include": ["src"]
 }

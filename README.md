@@ -1,4 +1,4 @@
-# prokom-dev
+# developer-control-center
 
 A project-local developer control center — a TUI launcher for commands, builds, pipelines, and status tracking.
 
@@ -16,20 +16,20 @@ A project-local developer control center — a TUI launcher for commands, builds
 - **Git branch** — shows current branch in header
 - **CI integration** — auto-detects CI environments, applies `ci` profile
 - **Desktop notifications** — alerts on task completion/failure
-- **Presets** — reusable command collections (`prokom-preset-*`)
+- **Presets** — reusable command collections (node, react)
 - **Plugin API** — lifecycle hooks for custom extensions
 
 ## Installation
 
 ```bash
-npm install -g @prokom-dev/cli
+npm install -g @hartvig/developer-control-center
 ```
 
 Or run from a local checkout:
 
 ```bash
 git clone <url>
-cd prokom-dev
+cd developer-control-center
 npm install
 npm run build
 npm start
@@ -39,16 +39,16 @@ npm start
 
 ```bash
 # Launch in current directory
-prokom
+dcc
 
 # Use a specific config file
-prokom ./configs/prokom.config.js
+dcc ./configs/dcc.config.js
 
 # Use a CI profile
-prokom --profile ci
+dcc --profile ci
 
 # Show help
-prokom --help
+dcc --help
 ```
 
 ### Keyboard Controls
@@ -65,7 +65,7 @@ prokom --help
 
 ## Configuration
 
-Create `prokom.config.js` (or `.mjs` / `.cjs`) in your project root:
+Create `dcc.config.js` (or `.mjs` / `.cjs`) in your project root:
 
 ```js
 export default {
@@ -96,12 +96,14 @@ export default {
 
 ```js
 export default {
-  presets: ['node'],  // loads prokom-preset-node
+  presets: ['node'],  // loads built-in node preset
   commands: [
     // your project-specific overrides
   ],
 };
 ```
+
+Built-in presets: `node` (test, build, lint, typecheck, clean), `react` (dev, build, test, lint, typecheck, preview).
 
 ### Profiles
 
@@ -133,26 +135,13 @@ export default {
 
 Full options documented in [docs/config.md](docs/config.md).
 
-## Packages
-
-| Package | Description |
-|---------|-------------|
-| `@prokom-dev/cli` | CLI entrypoint |
-| `@prokom-dev/core` | Runtime, TaskRunner, EventBus, CI detection, notifier |
-| `@prokom-dev/ui` | Ink-based terminal UI |
-| `@prokom-dev/config` | Config loading & types |
-| `@prokom-dev/status` | Observable task state store |
-| `@prokom-dev/plugins` | Plugin manager & hook system |
-
-## Extending
-
-See [PLUGINS.md](PLUGINS.md) for the plugin API and [docs/architecture.md](docs/architecture.md) for the system architecture.
-
 ## Development
 
 ```bash
 npm run dev      # watch mode
 npm test         # run tests
-npm run build    # build all packages
+npm run build    # compile TypeScript
 npm start        # run CLI
 ```
+
+See [PLUGINS.md](PLUGINS.md) for the plugin API and [docs/architecture.md](docs/architecture.md) for the system architecture.

@@ -2,23 +2,14 @@
 
 ## Example
 
-```ts
-export default {
-  name: 'aim-cms-frontend',
+A full sample config is available at `dcc.config.example.js` in the project root. It demonstrates:
 
-  commands: [
-    {
-      id: 'build',
-      label: 'Build',
-      command: 'npm run build'
-    },
-
-    {
-      id: 'deploy-staging',
-      label: 'Deploy staging',
-      command: 'npm run deploy:staging',
-      confirm: true
-    }
-  ]
-};
-```
+- Simple commands
+- Toggle (start/stop) commands
+- Confirm-before-run commands
+- Input prompt commands
+- Conditional follow-up on non-zero exit (`onNonZeroExit`)
+- Directory-scoped commands (`cwd`)
+- Parallel-safe tasks
+- Profiles (CI, staging, etc.)
+- Pipelines (sequential multi-step)

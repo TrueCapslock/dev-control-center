@@ -4,7 +4,7 @@
 
 ```txt
 ┌───────────────────────────────────────────────┐
-│ Prokom Dev                            main ✓ │
+│ Developer Control Center            main ✓ │
 ├───────────────────────────────────────────────┤
 │ Commands                     │ Project Status │
 │ > Build                      │ Build: PASS    │

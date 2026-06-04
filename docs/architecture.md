@@ -3,11 +3,11 @@
 ## Package Structure
 
 ```txt
-packages/
-  cli/
+src/
+  cli.ts
+  config/
   core/
   ui/
-  config/
   status/
   plugins/
 ```
