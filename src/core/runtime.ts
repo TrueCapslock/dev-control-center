@@ -71,7 +71,6 @@ export class Runtime {
 
   stop(): void {
     this.taskRunner.abortAll();
-    this.eventBus.removeAll();
     this.unsubPersistence?.();
     this.unsubNotifier?.();
   }

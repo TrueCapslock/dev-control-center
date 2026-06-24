@@ -3,6 +3,7 @@ import { Box, Text, useInput, useApp, useStdout } from 'ink';
 import { Runtime } from '../core/index.js';
 import { ProkomConfig, ProkomCommand, mergeCommands } from '../config/index.js';
 import { TaskState } from '../status/types.js';
+import { sendNotification } from '../core/notifier.js';
 import { CommandList, MenuGroup, MenuItem, ProfileOption } from './command-list.js';
 import { MetricsPanel } from './metrics-panel.js';
 import { Panel } from './panel.js';
@@ -99,11 +100,20 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const [helpScroll, setHelpScroll] = useState(0);
   const [activeProfile, setActiveProfile] = useState<string | undefined>(config.profile);
-  const terminalRows = stdout?.rows ?? 24;
+  const [termSize, setTermSize] = useState({ rows: stdout?.rows ?? 24, cols: stdout?.columns ?? 120 });
+  const terminalRows = termSize.rows;
   const dynamicRows = Math.max(4, terminalRows - 7);
   const menuRows = config.menuRows ?? dynamicRows;
   const outputRows = config.outputRows ?? menuRows;
-  const terminalColumns = stdout?.columns ?? 120;
+  const terminalColumns = termSize.cols;
+
+  useEffect(() => {
+    const onResize = () => {
+      setTermSize({ rows: stdout?.rows ?? 24, cols: stdout?.columns ?? 120 });
+    };
+    stdout?.on?.('resize', onResize);
+    return () => { stdout?.off?.('resize', onResize); };
+  }, [stdout]);
   const statusPaneWidth = 28;
 
   const activeCommands = useMemo(
@@ -144,8 +154,12 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
 
   useEffect(() => {
     const onComplete = (id: string, exitCode: number | null) => {
+      const cmd = commandsRef.current.find((c) => c.id === id);
+      if (cmd) {
+        const status = exitCode === null ? 'Stopped' : exitCode === 0 ? 'Completed' : 'Failed';
+        sendNotification(`DCC: ${cmd.label}`, status);
+      }
       if (exitCode != null && exitCode > 0) {
-        const cmd = commandsRef.current.find((c) => c.id === id);
         if (cmd?.onNonZeroExit) {
           setConfirmingCmd({
             id: `${cmd.id}:on-nonzero`,
@@ -484,52 +498,52 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
       } else if (key.upArrow) {
         setScrollOffsets((prev) => {
           const next = new Map(prev);
-          const entries = Array.from(tasks.values()).sort(
+          const entries = Array.from(tasksRef.current.values()).sort(
             (a, b) => (b.startTime || 0) - (a.startTime || 0),
           );
           const target = entries[0];
           if (target) {
-            const current = next.get(target.id) ?? 0;
-            next.set(target.id, current + 1);
+            const hiddenFromBottom = next.get(target.id) ?? 0;
+            next.set(target.id, hiddenFromBottom + 1);
           }
           return next;
         });
       } else if (key.downArrow) {
         setScrollOffsets((prev) => {
           const next = new Map(prev);
-          const entries = Array.from(tasks.values()).sort(
+          const entries = Array.from(tasksRef.current.values()).sort(
             (a, b) => (b.startTime || 0) - (a.startTime || 0),
           );
           const target = entries[0];
           if (target) {
-            const current = next.get(target.id) ?? 0;
-            next.set(target.id, Math.max(0, current - 1));
+            const hiddenFromBottom = next.get(target.id) ?? 0;
+            next.set(target.id, Math.max(0, hiddenFromBottom - 1));
           }
           return next;
         });
       } else if (key.pageUp) {
         setScrollOffsets((prev) => {
           const next = new Map(prev);
-          const entries = Array.from(tasks.values()).sort(
+          const entries = Array.from(tasksRef.current.values()).sort(
             (a, b) => (b.startTime || 0) - (a.startTime || 0),
           );
           const target = entries[0];
           if (target) {
-            const current = next.get(target.id) ?? 0;
-            next.set(target.id, current + 10);
+            const hiddenFromBottom = next.get(target.id) ?? 0;
+            next.set(target.id, hiddenFromBottom + 10);
           }
           return next;
         });
       } else if (key.pageDown) {
         setScrollOffsets((prev) => {
           const next = new Map(prev);
-          const entries = Array.from(tasks.values()).sort(
+          const entries = Array.from(tasksRef.current.values()).sort(
             (a, b) => (b.startTime || 0) - (a.startTime || 0),
           );
           const target = entries[0];
           if (target) {
-            const current = next.get(target.id) ?? 0;
-            next.set(target.id, Math.max(0, current - 10));
+            const hiddenFromBottom = next.get(target.id) ?? 0;
+            next.set(target.id, Math.max(0, hiddenFromBottom - 10));
           }
           return next;
         });

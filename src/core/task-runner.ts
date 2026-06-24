@@ -1,4 +1,4 @@
-import { spawn, execSync, ChildProcess } from 'child_process';
+import { spawn, exec, ChildProcess } from 'child_process';
 import fs from 'fs';
 import { ProkomCommand } from '../config/types.js';
 import { StatusStore } from '../status/store.js';
@@ -8,11 +8,13 @@ import { EventBus } from './event-bus.js';
 class FileWatcher {
   private watcher?: fs.FSWatcher;
   private debounceTimer?: ReturnType<typeof setTimeout>;
+  private exclude = /[/\\](node_modules|\.git)[/\\]/;
 
   watch(dir: string, onChange: () => void): boolean {
     this.stop();
     try {
-      this.watcher = fs.watch(dir, { recursive: true }, () => {
+      this.watcher = fs.watch(dir, { recursive: true }, (event, filename) => {
+        if (filename && this.exclude.test(filename.toString())) return;
         if (this.debounceTimer) clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(onChange, 500);
       });
@@ -63,7 +65,8 @@ export class TaskRunner {
 
     const existing = this.statusStore.getTask(command.id);
     if (existing?.status === 'running') {
-      return;
+      if (!command.parallel) return;
+      this.abort(command.id);
     }
 
     await this.pluginManager?.executeHook('beforeRun', command);
@@ -83,18 +86,41 @@ export class TaskRunner {
 
     this.eventBus.emit('task:start', command);
 
-    const child = spawn(command.command, [], {
-      shell: true,
-      detached: true,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: command.cwd,
-    });
+    let child: ChildProcess;
+    try {
+      child = spawn(command.command, [], {
+        shell: true,
+        detached: true,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: command.cwd,
+      });
+    } catch (err) {
+      this.statusStore.updateTask(command.id, {
+        status: 'failure',
+        output: `Failed to spawn: ${err instanceof Error ? err.message : String(err)}\n`,
+        exitCode: -1,
+        endTime: Date.now(),
+      });
+      this.eventBus.emit('task:error', command.id, err instanceof Error ? err : new Error(String(err)));
+      this.pluginManager?.executeHook('onError', command.id, err instanceof Error ? err : new Error(String(err)));
+      return;
+    }
 
     this.running.set(command.id, child);
 
     if (command.toggle?.check) {
       this.startCheck(command);
+    }
+
+    let timedOut = false;
+    const timeoutMs = command.timeout ?? 0;
+    let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+    if (timeoutMs > 0) {
+      timeoutTimer = setTimeout(() => {
+        timedOut = true;
+        this.abort(command.id);
+      }, timeoutMs);
     }
 
     let output = '';
@@ -116,6 +142,7 @@ export class TaskRunner {
     });
 
     child.on('close', (exitCode) => {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
       this.running.delete(command.id);
 
       if (command.toggle?.check) return;
@@ -171,6 +198,14 @@ export class TaskRunner {
     }
     this.stopWatcher(id);
     this.stopCheck(id);
+    const existing = this.statusStore.getTask(id);
+    if (existing?.status === 'running') {
+      this.statusStore.updateTask(id, {
+        status: 'failure',
+        endTime: Date.now(),
+      });
+      this.eventBus.emit('task:complete', id, -1);
+    }
   }
 
   abortAll(): void {
@@ -446,16 +481,16 @@ export class TaskRunner {
 
     const checkCmd = command.toggle!.check!;
     const interval = setInterval(() => {
-      try {
-        execSync(checkCmd, { encoding: 'utf-8', timeout: 3000, stdio: 'pipe' });
-      } catch {
-        this.statusStore.updateTask(id, {
-          status: 'failure',
-          endTime: Date.now(),
-        });
-        this.eventBus.emit('task:complete', id, -1);
-        this.stopCheck(id);
-      }
+      exec(checkCmd, { encoding: 'utf-8', timeout: 3000 }, (err) => {
+        if (err) {
+          this.statusStore.updateTask(id, {
+            status: 'failure',
+            endTime: Date.now(),
+          });
+          this.eventBus.emit('task:complete', id, -1);
+          this.stopCheck(id);
+        }
+      });
     }, this.CHECK_INTERVAL);
 
     this.checkIntervals.set(id, interval);

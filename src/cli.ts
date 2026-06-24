@@ -6,7 +6,7 @@ import { loadConfig } from './config/index.js';
 import { Runtime, detectCI } from './core/index.js';
 import { startUI } from './ui/index.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.8.7';
 
 function printHelp(): void {
   console.log(`
