@@ -36,12 +36,6 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm ci
       - run: npm run build
-      - name: Publish packages
-        run: |
-          for pkg in packages/config packages/status packages/plugins packages/core packages/ui packages/cli packages/preset-node packages/preset-react; do
-            cd "$pkg"
-            npm publish --access public 2>/dev/null || echo "skipping $pkg (already published)"
-            cd ../..
-          done
+      - run: npm publish --access public 2>/dev/null || true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

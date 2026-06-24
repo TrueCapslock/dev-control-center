@@ -5,6 +5,10 @@ type HookName = keyof PluginHooks;
 export class PluginManager {
   private plugins = new Map<string, Plugin>();
 
+  constructor(
+    private onError?: (msg: string, err: unknown) => void,
+  ) {}
+
   register(plugin: Plugin): void {
     this.plugins.set(plugin.id, plugin);
   }
@@ -33,7 +37,7 @@ export class PluginManager {
         try {
           await Promise.resolve(fn(...args));
         } catch (e) {
-          console.error(`Plugin ${plugin.id} ${hook} error:`, e);
+          this.onError?.(`Plugin ${plugin.id} ${hook} error`, e);
         }
       }
     }
@@ -47,7 +51,7 @@ export class PluginManager {
         const p: Plugin = mod.default || mod;
         this.register(p);
       } catch (e) {
-        console.error(`Failed to load plugin "${name}":`, e);
+        this.onError?.(`Failed to load plugin "${name}"`, e);
       }
     }
   }

@@ -9,15 +9,16 @@ class FileWatcher {
   private watcher?: fs.FSWatcher;
   private debounceTimer?: ReturnType<typeof setTimeout>;
 
-  watch(dir: string, onChange: () => void): void {
+  watch(dir: string, onChange: () => void): boolean {
     this.stop();
     try {
       this.watcher = fs.watch(dir, { recursive: true }, () => {
         if (this.debounceTimer) clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(onChange, 500);
       });
+      return true;
     } catch {
-      console.warn(`[dcc] watch mode: recursive file watching not supported on ${dir}`);
+      return false;
     }
   }
 
@@ -85,6 +86,7 @@ export class TaskRunner {
     const child = spawn(command.command, [], {
       shell: true,
       detached: true,
+      windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: command.cwd,
     });
@@ -200,12 +202,27 @@ export class TaskRunner {
     });
     this.eventBus.emit('task:complete', command.id, 0);
     if (command.toggle?.stop) {
-      spawn(command.toggle.stop, {
+      const stopCmd = process.platform === 'win32'
+        ? this.windowsStopCommand(command.toggle.stop)
+        : command.toggle.stop;
+      spawn(stopCmd, {
         shell: true,
         stdio: 'ignore',
         cwd: command.cwd,
-      });
+      }).unref();
     }
+  }
+
+  private windowsStopCommand(cmd: string): string {
+    const pkillMatch = cmd.match(/^pkill\s+-f\s+(.+)$/);
+    if (pkillMatch) {
+      return `taskkill /F /IM ${pkillMatch[1]}* 2>nul`;
+    }
+    const killMatch = cmd.match(/^kill\s+-?\d*\s+(\d+)$/);
+    if (killMatch) {
+      return `taskkill /F /PID ${killMatch[1]} 2>nul`;
+    }
+    return cmd;
   }
 
   private async runPipeline(command: ProkomCommand): Promise<void> {
@@ -388,9 +405,13 @@ export class TaskRunner {
 
   private startWatcher(command: ProkomCommand): void {
     const watcher = new FileWatcher();
-    watcher.watch(process.cwd(), () => {
+    const ok = watcher.watch(process.cwd(), () => {
       this.run(command);
     });
+    if (!ok) {
+      this.eventBus.emit('task:output', command.id, `watch mode: recursive file watching not supported\n`);
+      return;
+    }
     this.watchers.set(command.id, watcher);
     this.statusStore.updateTask(command.id, { watchMode: true });
   }

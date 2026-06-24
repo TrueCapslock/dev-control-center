@@ -1,9 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import type { Plugin } from '../plugins/types.js';
+import { PERSISTENCE_DIR } from './persistence.js';
 
 const startTimes = new Map<string, number>();
-const TIMINGS_FILE = path.join(process.cwd(), '.developer-control-center', 'timings.jsonl');
+const TIMINGS_FILE = path.join(process.cwd(), PERSISTENCE_DIR, 'timings.jsonl');
 
 export const timerPlugin: Plugin = {
   id: 'timer',

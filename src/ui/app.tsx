@@ -13,7 +13,7 @@ interface AppProps {
   runtime: Runtime;
 }
 
-type Mode = 'normal' | 'search' | 'confirm' | 'input' | 'popup';
+type Mode = 'normal' | 'search' | 'confirm' | 'input' | 'popup' | 'help';
 
 interface PopupState {
   title: string;
@@ -25,6 +25,35 @@ type Pane = 'commands' | 'status';
 
 const PROFILE_GROUP_ID = '__profiles';
 const GROUP_ORDER = ['Development', 'Build', 'Deploy', 'Management', 'Demo'];
+
+type HelpEntry =
+  | { kind: 'header'; text: string }
+  | { kind: 'key'; key: string; desc: string }
+  | { kind: 'spacer' }
+  | { kind: 'hint' };
+
+const helpEntries: HelpEntry[] = [
+  { kind: 'header', text: 'Navigation' },
+  { kind: 'key', key: '↑/↓', desc: 'Navigate commands' },
+  { kind: 'key', key: 'Enter', desc: 'Run selected command' },
+  { kind: 'key', key: 'Space', desc: 'Multi-select / open group' },
+  { kind: 'key', key: 'Tab', desc: 'Toggle pane focus' },
+  { kind: 'key', key: '/', desc: 'Search/filter commands' },
+  { kind: 'spacer' },
+  { kind: 'header', text: 'Output pane' },
+  { kind: 'key', key: '↑/↓', desc: 'Scroll line by line' },
+  { kind: 'key', key: 'PgUp/PgDn', desc: 'Scroll 10 lines' },
+  { kind: 'key', key: 'Esc', desc: 'Back to commands' },
+  { kind: 'spacer' },
+  { kind: 'header', text: 'Global' },
+  { kind: 'key', key: '?', desc: 'Toggle this help' },
+  { kind: 'key', key: 'Esc', desc: 'Back / deselect / quit' },
+  { kind: 'key', key: 'Ctrl+C', desc: 'Quit' },
+  { kind: 'spacer' },
+  { kind: 'hint' },
+];
+
+const HELP_CONTENT_LINES = helpEntries.length;
 
 function commandsForProfile(config: ProkomConfig, profile?: string): ProkomCommand[] {
   const base = config.baseCommands ?? config.commands;
@@ -68,8 +97,11 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   );
   const [currentGroup, setCurrentGroup] = useState<string | null>(null);
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+  const [helpScroll, setHelpScroll] = useState(0);
   const [activeProfile, setActiveProfile] = useState<string | undefined>(config.profile);
-  const menuRows = config.menuRows ?? 8;
+  const terminalRows = stdout?.rows ?? 24;
+  const dynamicRows = Math.max(4, terminalRows - 7);
+  const menuRows = config.menuRows ?? dynamicRows;
   const outputRows = config.outputRows ?? menuRows;
   const terminalColumns = stdout?.columns ?? 120;
   const statusPaneWidth = 28;
@@ -93,6 +125,7 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
   }, [activeCommands, terminalColumns, statusPaneWidth]);
 
   const outputPaneWidth = Math.max(20, terminalColumns - commandPaneWidth - statusPaneWidth - 4);
+  const helpScrollMax = Math.max(0, HELP_CONTENT_LINES - outputRows);
 
   const modeRef = useRef(mode);
   modeRef.current = mode;
@@ -206,10 +239,16 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
 
   const filteredItems = useMemo((): MenuItem[] => {
     if (!searchQuery) return menuItems;
-    return menuItems.filter((item) =>
-      item.label.toLowerCase().includes(searchQuery.toLowerCase()),
+    const q = searchQuery.toLowerCase();
+    const topLevel = menuItems.filter((item) =>
+      item.label.toLowerCase().includes(q),
     );
-  }, [menuItems, searchQuery]);
+    if (!hasGroups || currentGroup) return topLevel;
+    const groupCommands = activeCommands.filter(
+      (cmd) => cmd.group && cmd.label.toLowerCase().includes(q),
+    );
+    return groupCommands.length > 0 ? [...topLevel, ...groupCommands] : topLevel;
+  }, [menuItems, searchQuery, hasGroups, currentGroup, activeCommands]);
 
   useEffect(() => {
     if (selectedIndex >= filteredItems.length && filteredItems.length > 0) {
@@ -223,15 +262,17 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
 
   const selCount = multiSelected.size;
   const selectedItem = filteredItems[selectedIndex];
-  const footerText = selectedItem
-    ? isProfileOption(selectedItem)
-      ? selectedItem.active
-        ? `Active profile: ${selectedItem.label}`
-        : `Switch to ${selectedItem.label} profile`
-      : 'count' in selectedItem
-        ? `Open ${selectedItem.label}`
-        : selectedItem.description ?? 'Enter to run, Space to select, / to search, Tab to focus output'
-    : 'Enter to run, Space to select, / to search, Tab to focus output';
+  const footerText = mode === 'help'
+    ? 'Press ? or Esc to close help'
+    : selectedItem
+      ? isProfileOption(selectedItem)
+        ? selectedItem.active
+          ? `Active profile: ${selectedItem.label}`
+          : `Switch to ${selectedItem.label} profile`
+        : 'count' in selectedItem
+          ? `Open ${selectedItem.label}`
+          : selectedItem.description ?? 'Enter to run, Space to select, / to search, Tab focus, ? help'
+      : 'Enter to run, Space to select, / to search, Tab focus, ? help';
 
   const runSingle = useCallback((cmd: ProkomCommand) => {
     if (cmd.id === 'demo-confirm-overlay') {
@@ -255,7 +296,9 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
       if (task?.status === 'running') {
         runtime.taskRunner.stop(cmd);
       } else {
-        runtime.taskRunner.run(cmd);
+        runtime.taskRunner.run(cmd).catch((e: unknown) => {
+          process.stderr.write(`[dcc] run error: ${e}\n`);
+        });
       }
     } else if (cmd.confirm) {
       setConfirmingCmd(cmd);
@@ -265,7 +308,9 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
       setInputValue('');
       setMode('input');
     } else {
-      runtime.taskRunner.run(cmd);
+      runtime.taskRunner.run(cmd).catch((e: unknown) => {
+        process.stderr.write(`[dcc] run error: ${e}\n`);
+      });
     }
   }, [runtime]);
 
@@ -292,7 +337,9 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
     for (const cmd of activeCommands) {
       if (selected.has(cmd.id)) {
         if (!cmd.confirm && !cmd.input) {
-          runtime.taskRunner.run(cmd);
+          runtime.taskRunner.run(cmd).catch((e: unknown) => {
+            process.stderr.write(`[dcc] run error: ${e}\n`);
+          });
         }
       }
     }
@@ -370,6 +417,14 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
       return;
     }
 
+    if (modeRef.current === 'help') {
+      if (key.escape || input === '?') {
+        setHelpScroll(0);
+        setMode('normal');
+        return;
+      }
+    }
+
     if (mode === 'search') {
       if (key.escape) {
         setSearchQuery('');
@@ -402,7 +457,28 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
       return;
     }
 
+    if (input === '?' && modeRef.current === 'normal') {
+      setHelpScroll(0);
+      setMode('help');
+      return;
+    }
+
     if (focusedPane === 'status') {
+      if (modeRef.current === 'help') {
+        if (key.upArrow) {
+          setHelpScroll((s) => Math.max(0, s - 1));
+        } else if (key.downArrow) {
+          setHelpScroll((s) => Math.min(helpScrollMax, s + 1));
+        } else if (key.pageUp) {
+          setHelpScroll((s) => Math.max(0, s - 10));
+        } else if (key.pageDown) {
+          setHelpScroll((s) => Math.min(helpScrollMax, s + 10));
+        } else if (key.escape) {
+          setFocusedPane('commands');
+        }
+        return;
+      }
+
       if (key.escape) {
         setFocusedPane('commands');
       } else if (key.upArrow) {
@@ -594,16 +670,52 @@ export const App: React.FC<AppProps> = ({ config, runtime }) => {
         <Box width={1} />
         <MetricsPanel tasks={tasks} menuRows={outputRows} width={statusPaneWidth} />
         <Box width={1} />
-        <StatusPanel
-          tasks={tasks}
-          width={outputPaneWidth}
-          scrollOffsets={scrollOffsets}
-          focusedPane={focusedPane}
-          confirmingCommand={mode === 'confirm' ? confirmingCmd : null}
-          inputCommand={mode === 'input' ? inputCmd : null}
-          inputValue={inputValue}
-          menuRows={outputRows}
-        />
+        {mode === 'help' ? (
+          <Panel
+            title="Help"
+            titleColor={focusedPane === 'status' ? 'cyan' : 'white'}
+            titleExtra={
+              helpScrollMax > 0
+                ? <Text>{` ${helpScroll > 0 ? '▲' : ''}${helpScroll < helpScrollMax ? ' ▼' : ''}`}</Text>
+                : undefined
+            }
+            titleExtraWidth={helpScrollMax > 0 ? 4 : 0}
+            borderColor={focusedPane === 'status' ? 'cyan' : 'white'}
+            height={outputRows + 2}
+            width={outputPaneWidth}
+          >
+            <Box flexDirection="column" paddingLeft={2}>
+              {helpEntries.slice(helpScroll, helpScroll + outputRows).map((entry, i) => {
+                switch (entry.kind) {
+                  case 'header':
+                    return <Box key={i + helpScroll}><Text bold color="cyan">{entry.text}</Text></Box>;
+                  case 'key':
+                    return (
+                      <Box key={i + helpScroll}>
+                        <Text color="yellow">  {entry.key.padEnd(10)}</Text>
+                        <Text>{entry.desc}</Text>
+                      </Box>
+                    );
+                  case 'spacer':
+                    return <Box key={i + helpScroll}><Text> </Text></Box>;
+                  case 'hint':
+                    return <Box key={i + helpScroll}><Text color="gray">? or Esc to close</Text></Box>;
+                }
+              })}
+            </Box>
+          </Panel>
+        ) : (
+          <StatusPanel
+            tasks={tasks}
+            width={outputPaneWidth}
+            scrollOffsets={scrollOffsets}
+            focusedPane={focusedPane}
+            confirmingCommand={mode === 'confirm' ? confirmingCmd : null}
+            inputCommand={mode === 'input' ? inputCmd : null}
+            inputValue={inputValue}
+            menuRows={outputRows}
+          />
+        )}
       </Box>
 
       <Box>

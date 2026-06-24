@@ -8,6 +8,7 @@ import { detectWorkspaces, WorkspacePackage } from './workspaces.js';
 import { sendNotification } from './notifier.js';
 import { detectCI, CIInfo } from './ci.js';
 import { timerPlugin } from './timer-plugin.js';
+import { PERSISTENCE_DIR } from './persistence.js';
 
 function getGitBranch(): string | undefined {
   try {
@@ -25,12 +26,16 @@ export class Runtime {
   readonly eventBus = new EventBus();
   readonly statusStore = new StatusStore();
   readonly taskRunner: TaskRunner;
-  readonly pluginManager = new PluginManager();
+  readonly pluginManager = new PluginManager(
+    (msg: string, err: unknown) => {
+      this.eventBus.emit('task:output' as any, '_plugins', `${msg}: ${err instanceof Error ? err.message : String(err)}\n`);
+    },
+  );
   readonly gitBranch: string | undefined;
   readonly workspaces: WorkspacePackage[];
   readonly ci: CIInfo;
 
-  private persistenceDir = '.developer-control-center';
+  private persistenceDir = PERSISTENCE_DIR;
   private unsubPersistence?: () => void;
   private unsubNotifier?: () => void;
 

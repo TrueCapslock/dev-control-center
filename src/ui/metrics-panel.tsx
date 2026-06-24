@@ -3,6 +3,7 @@ import path from 'path';
 import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 import { TaskState, TaskStatus } from '../status/types.js';
+import { PERSISTENCE_DIR } from '../core/persistence.js';
 import { Panel } from './panel.js';
 
 interface MetricsPanelProps {
@@ -10,7 +11,7 @@ interface MetricsPanelProps {
   menuRows: number;
   width: number;
 }
-const METRICS_FILE = path.join(process.cwd(), '.developer-control-center', 'metrics.json');
+const METRICS_FILE = path.join(process.cwd(), PERSISTENCE_DIR, 'metrics.json');
 
 interface MetricsState {
   projectRunning: boolean;
@@ -31,12 +32,6 @@ interface MetricsState {
   packageVersion: string;
 }
 
-const INITIAL_METRICS: MetricsState = {
-  projectRunning: false,
-  activeTasks: 0,
-  packageVersion: loadPackageVersion(),
-};
-
 function loadPackageVersion(): string {
   try {
     const packageJson = JSON.parse(
@@ -49,16 +44,21 @@ function loadPackageVersion(): string {
 }
 
 function loadMetrics(): MetricsState {
+  const base = {
+    projectRunning: false,
+    activeTasks: 0,
+    packageVersion: loadPackageVersion(),
+  };
   try {
     const persisted = JSON.parse(fs.readFileSync(METRICS_FILE, 'utf-8')) as MetricsState;
     return {
-      ...INITIAL_METRICS,
+      ...base,
       latestTest: persisted.latestTest,
       latestBuild: persisted.latestBuild,
       lastGitPush: persisted.lastGitPush,
     };
   } catch {
-    return INITIAL_METRICS;
+    return base;
   }
 }
 
@@ -169,7 +169,7 @@ export const MetricsPanel: React.FC<MetricsPanelProps> = ({ tasks, menuRows, wid
   }, [tasks]);
 
   return (
-    <Panel title="Status" width={width} height={menuRows + 2}>
+    <Panel title="Status" titleColor="white" width={width} height={menuRows + 2}>
       <Box paddingLeft={1}>
         <Text color={metrics.projectRunning ? 'yellow' : 'gray'}>
           Project: {metrics.projectRunning ? 'running' : 'idle'}

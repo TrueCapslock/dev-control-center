@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { PluginManager } from './manager.js';
 import type { Plugin } from './types.js';
 
@@ -68,7 +68,8 @@ describe('PluginManager', () => {
   });
 
   it('does not throw when a hook fails', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const errors: string[] = [];
+    pm = new PluginManager((msg) => errors.push(msg));
     pm.register({
       id: 'bad',
       name: 'Bad',
@@ -77,6 +78,8 @@ describe('PluginManager', () => {
     await expect(
       pm.executeHook('beforeRun', { id: 'x', label: 'X', command: 'x' }),
     ).resolves.toBeUndefined();
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toContain('bad');
   });
 
   it('skips plugin with no hooks for the requested hook', async () => {

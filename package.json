@@ -1,6 +1,6 @@
 {
   "name": "@hartvig/developer-control-center",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "type": "module",
   "private": false,
   "bin": {
@@ -22,8 +22,10 @@
     "react": "^19.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.0.0",
+    "@types/node": "^26.0.0",
     "@types/react": "^19.0.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "ink-testing-library": "^4.0.0",
     "typescript": "^6.0.0",
     "vitest": "^4.1.7"
   }

@@ -1,6 +1,6 @@
 export default {
   name: 'developer-control-center',
-  menuRows: 10, 
+  // menuRows: 10, 
   // Available presets (use: presets: ['node'] or presets: ['react']):
   //   node  — Test, Build, Lint, TypeCheck, Clean (npm run / npm test)
   //   react — Dev server, Build, Test, Lint, TypeCheck, Preview build
@@ -11,7 +11,7 @@ export default {
       id: 'dev',
       label: 'Watch mode',
       description: 'Start or stop the TypeScript project-reference watcher.',
-      toggle: { start: 'npm run dev', stop: 'pkill -f "tsc -w" 2>/dev/null || true' },
+      toggle: { start: 'npm run dev', stop: 'pkill -f "tsc -w" 2>/dev/null || true', check: 'curl -sf http://localhost:5173 > /dev/null', },
       group: 'Development',
     },
     {
